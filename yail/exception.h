@@ -5,40 +5,40 @@
 #include <exception>
 #include <string>
 
-#define YAIL_DECLARE_EXCEPTION(exception_name)		           \
-  class YAIL_API exception_name                              \
-		: public virtual yail::exception                         \
-	{	                                                         \
-  public:						                                         \
-		exception_name (                                         \
-			const std::string& what) throw ();	                   \
-		exception_name (                                         \
-			const std::string& what,		                           \
-			const std::string& where) throw ();	                   \
-		exception_name (                                         \
-			const std::string& what,		                           \
-			const std::string& where,		                           \
-			int error_code) throw ();			                         \
-		virtual ~exception_name() throw ();			                 \
-  };
+#define YAIL_DECLARE_EXCEPTION(exception_name)  \
+	class YAIL_API exception_name                 \
+		: public virtual yail::exception            \
+	{                                             \
+	public:                                       \
+		exception_name (                            \
+			const std::string& what) throw ();        \
+		exception_name (                            \
+			const std::string& what,                  \
+			const std::string& where) throw ();       \
+		exception_name (                            \
+			const std::string& what,                  \
+			const std::string& where,                 \
+			int error_code) throw ();                 \
+		virtual ~exception_name() throw ();         \
+	};
 
-#define YAIL_DEFINE_EXCEPTION(exception_name)					       \
-  exception_name::exception_name (                           \
-		const std::string& what) throw()		                     \
-    : exception(what)                                        \
-  {}						                                             \
-  exception_name::exception_name (                           \
-		const std::string& what,			                           \
-		const std::string& where) throw()	                       \
-    : exception(what, where)                                 \
-	{}					                                               \
-  exception_name::exception_name (                           \
-		const std::string& what,			                           \
-		const std::string& where,		                             \
-		int error_code) throw ()			                           \
-    : exception (what, where, error_code)                    \
-	{}					                                               \
-  exception_name::~exception_name() throw()                  \
+#define YAIL_DEFINE_EXCEPTION(exception_name)    \
+	exception_name::exception_name (               \
+		const std::string& what) throw ()            \
+		: exception(what)                            \
+	{}                                             \
+	exception_name::exception_name (               \
+		const std::string& what,                     \
+		const std::string& where) throw ()           \
+		: exception(what, where)                     \
+	{}                                             \
+	exception_name::exception_name (               \
+		const std::string& what,                     \
+		const std::string& where,                    \
+		int error_code) throw ()                     \
+		: exception (what, where, error_code)        \
+	{}                                             \
+	exception_name::~exception_name() throw ()     \
 	{}
 
 #define YAIL_THROW_EXCEPTION(exception_name, what, error_code) \
@@ -47,7 +47,8 @@
 namespace yail {
 
 class YAIL_API exception 
-	: public virtual std::exception {
+	: public virtual std::exception 
+{
 public:
 	exception (const std::string& what) throw ();
 
