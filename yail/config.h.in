@@ -1,0 +1,49 @@
+#ifndef YAIL_CONFIG_H
+#define YAIL_CONFIG_H
+
+// yail configuration options
+#define yail_VERSION_MAJOR @yail_VERSION_MAJOR@
+#define yail_VERSION_MINOR @yail_VERSION_MINOR@
+
+#define YAIL_PUBSUB_MAX_MSG_SIZE @YAIL_PUBSUB_MAX_MSG_SIZE@
+#define YAIL_PUBSUB_SHMEM_SEGMENT_SIZE @YAIL_PUBSUB_SHMEM_SEGMENT_SIZE@
+#define YAIL_PUBSUB_SHMEM_RECEIVER_QUEUE_DEPTH @YAIL_PUBSUB_SHMEM_RECEIVER_QUEUE_DEPTH@
+
+#cmakedefine YAIL_USES_BOOST_ASIO
+#cmakedefine YAIL_PUBSUB_ENABLE_SHMEM_TRANSPORT
+#cmakedefine YAIL_PUBSUB_ENABLE_UDP_TRANSPORT
+
+// Generic helper definitions for shared library support
+#if defined _WIN32 || defined __CYGWIN__
+  #define YAIL_HELPER_DLL_IMPORT __declspec(dllimport)
+  #define YAIL_HELPER_DLL_EXPORT __declspec(dllexport)
+  #define YAIL_HELPER_DLL_LOCAL
+#else
+  #if __GNUC__ >= 4
+    #define YAIL_HELPER_DLL_IMPORT __attribute__ ((visibility ("default")))
+    #define YAIL_HELPER_DLL_EXPORT __attribute__ ((visibility ("default")))
+    #define YAIL_HELPER_DLL_LOCAL  __attribute__ ((visibility ("hidden")))
+  #else
+    #define YAIL_HELPER_DLL_IMPORT
+    #define YAIL_HELPER_DLL_EXPORT
+    #define YAIL_HELPER_DLL_LOCAL
+  #endif
+#endif
+
+// YAIL_API is used for the public API symbols. It either DLL imports or 
+// DLL exports (or does nothing for static build).
+// YAIL_LOCAL is used for non-api symbols.
+
+#ifdef YAIL_DLL // defined if YAIL is compiled as a DLL
+  #ifdef YAIL_DLL_EXPORTS // defined if we are building the YAIL DLL (instead of using it)
+    #define YAIL_API YAIL_HELPER_DLL_EXPORT
+  #else
+    #define YAIL_API YAIL_HELPER_DLL_IMPORT
+  #endif // YAIL_DLL_EXPORTS
+  #define YAIL_LOCAL YAIL_HELPER_DLL_LOCAL
+#else // YAIL_DLL is not defined: this means YAIL is a static lib.
+  #define YAIL_API
+  #define YAIL_LOCAL
+#endif // YAIL_DLL
+
+#endif

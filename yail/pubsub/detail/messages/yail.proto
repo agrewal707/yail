@@ -1,0 +1,27 @@
+package yail.pubsub.detail.messages;
+option optimize_for = CODE_SIZE;
+
+message pubsub_header
+{
+	enum msg_type
+	{
+		DATA = 1; // Publisher -> Subscriber(s) (multicast)
+	}
+	required uint32 version = 1 [default = 0];
+	required msg_type type = 2;
+	required uint32 id = 3;
+}
+
+message pubsub_data
+{
+	required string domain = 1;
+	required string topic_name = 2;
+	required string topic_type_name = 3;
+  required bytes topic_data = 4;
+}
+
+message pubsub
+{
+	required pubsub_header header = 1;
+	optional pubsub_data data = 2;
+}
