@@ -35,7 +35,7 @@ Build and Installation
 
 ```
 $ cd ~/projects
-$ git clone git@github.com:agrewal707/yail.git
+$ git clone git://github.com/agrewal707/yail.git
 $ mkdir -p build/yail
 $ cd build/yail
 $ cmake -DYAIL_PUBSUB_ENABLE_UDP_TRANSPORT=on -DCMAKE_INSTALL_PREFIX=local -DCMAKE_BUILD_TYPE=MinSizeRel ../../yail
