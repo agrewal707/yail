@@ -24,7 +24,7 @@ add_subdirectory (messages)
 include_directories(
   ${PROJECT_SOURCE_DIR}
 	${PROJECT_BINARY_DIR}
-	${BOOST_INCLUDE_DIRS}
+	${Boost_INCLUDE_DIRS}
 )
 
 # library paths
