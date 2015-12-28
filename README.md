@@ -6,13 +6,19 @@ YAIL is a C++ library that provides publish/subscribe (PUBSUB) and remote proced
 The PUBSUB functionality is loosely based on concepts from Data Distribution 
 Service (DDS) standard from Object Management Group (OMG). YAIL separates the IPC 
 messaging layer from the underlying transport enabling user to instantiate 
-YAIL pubsub service with specific transport at compile time. 
+YAIL pubsub or rpc service with specific transport at compile time. 
 
-YAIL library provides following transports for PUBSUB service:
+PUBSUB
+------
+YAIL library currently provides following transports for PUBSUB service:
 - UDP multicast
 - Shared Memory
 
-NOTE: Currently, only PUBSUB functionality is implemented.
+![Atl text](/docs/yail_pubsub_arch.jpg?raw=true "Optional Title")
+
+RPC
+---
+TODO
 
 Dependencies
 ------------
