@@ -154,7 +154,7 @@ template <typename Transport>
 subscriber<Transport>::subscriber (yail::io_service &io_service, Transport &transport, const std::string &domain) :
 	subscriber_common (io_service, domain),
 	m_transport (transport),
-	m_buffer (YAIL_PUBSUB_MAX_MSG_SIZE)
+	m_buffer ()
 {
 	do_receive ();
 }
@@ -166,7 +166,6 @@ subscriber<Transport>::~subscriber ()
 template <typename Transport> 
 void subscriber<Transport>::do_receive ()
 {
-	m_buffer.resize (YAIL_PUBSUB_MAX_MSG_SIZE);
 	m_transport.async_receive (m_buffer,
 		[this] (const boost::system::error_code &ec)
 			{

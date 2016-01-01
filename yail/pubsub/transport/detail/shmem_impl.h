@@ -104,6 +104,7 @@ public:
 		};
 
 		void do_work ();
+		void complete_ops_with_error (const boost::system::error_code &ec);
 
 		yail::io_service &m_io_service;
 		const channel_map &m_channel_map;
@@ -150,6 +151,7 @@ public:
 		};
 
 		void do_work ();
+		void complete_ops_with_error (const boost::system::error_code &ec);
 
 		yail::io_service &m_io_service;
 		channel_map &m_channel_map;

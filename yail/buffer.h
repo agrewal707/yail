@@ -13,6 +13,7 @@ namespace yail {
 class YAIL_API buffer
 {
 public:
+	buffer ();
 	buffer (const size_t max_size);
 	buffer (const std::string& data);
 	~buffer ();

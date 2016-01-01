@@ -2,6 +2,9 @@
 
 namespace yail {
 
+buffer::buffer ()
+{}
+
 buffer::buffer (const size_t max_size)
 {
 	m_data.resize (max_size);

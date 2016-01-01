@@ -14,6 +14,7 @@
 	} while (false);
 
 #define YAIL_LOG_WARNING(msg) DO_YAIL_LOG(YAIL_LOGGER, msg)
+#define YAIL_LOG_ERROR(msg) DO_YAIL_LOG(YAIL_LOGGER, msg)
 
 #if defined(YAIL_DEBUG)
 #define YAIL_LOG_DEBUG(msg) DO_YAIL_LOG(YAIL_LOGGER, msg)

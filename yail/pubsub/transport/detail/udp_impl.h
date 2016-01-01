@@ -61,6 +61,7 @@ public:
 		{
 			auto op = std::make_shared<receive_operation<Handler>> (handler);
 
+			buffer.resize (YAIL_PUBSUB_MAX_MSG_SIZE);
 			m_socket.async_receive_from (boost::asio::buffer (buffer.data (), buffer.size ()), m_sender_endpoint,
 				[ this, op, &buffer] (const boost::system::error_code &ec, size_t bytes_recvd)
 				{

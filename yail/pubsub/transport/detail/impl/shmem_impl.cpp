@@ -200,23 +200,50 @@ void shmem_impl::sender::do_work ()
 
 		if (!stop)
 		{
-			auto receivers = m_channel_map.get_receivers ();
-			for (auto &uuid : receivers)
+			try
 			{
-				YAIL_LOG_TRACE ("sending to = " << uuid);
-
-				// send data to receiver's mq
-				boost::interprocess::message_queue mq (open_only, uuid.c_str ());
-				ptime abs_time (second_clock::universal_time() + seconds(10));
-				if (!mq.timed_send(op->m_buffer.data (), op->m_buffer.size (), 0, abs_time))
+				auto receivers = m_channel_map.get_receivers ();
+				for (auto &uuid : receivers)
 				{
-					YAIL_LOG_WARNING ("receiver: " << uuid << " queue is full");
-				}
-			}
+					YAIL_LOG_TRACE ("sending to = " << uuid);
 
-			// post client send handler
-			m_io_service.post (std::bind (op->m_handler, yail::pubsub::error::success));
+					// send data to receiver's mq
+					boost::interprocess::message_queue mq (open_only, uuid.c_str ());
+					ptime abs_time (second_clock::universal_time() + seconds(10));
+					if (!mq.timed_send(op->m_buffer.data (), op->m_buffer.size (), 0, abs_time))
+					{
+						YAIL_LOG_WARNING ("receiver: " << uuid << " queue is full");
+					}
+				}
+
+				// complete operation with success. this is best effort transport
+				// we don't error if unable to send to one or more receivers.
+				m_io_service.post (std::bind (op->m_handler, yail::pubsub::error::success));
+			}
+			catch (const interprocess_exception &ex)
+			{
+				YAIL_LOG_ERROR ("interprocess error: " << ex.what ());
+
+				complete_ops_with_error (yail::pubsub::error::system_error);
+
+				// we can't recover from this here. cease operation.
+				stop = true;
+			}
 		}
+	}
+}
+
+void shmem_impl::sender::complete_ops_with_error (const boost::system::error_code &ec)
+{
+	YAIL_LOG_TRACE (this);
+
+	while (!m_op_queue.empty ())
+	{
+		m_io_service.post ([this, ec] () {
+			auto op = std::move (m_op_queue.front ());
+			m_op_queue.pop ();
+			op->m_handler (ec);
+		});
 	}
 }
 
@@ -243,8 +270,6 @@ shmem_impl::receiver::receiver (yail::io_service &io_service, shmem_impl::channe
 	m_channel_map (chmap),
 	m_uuid (boost::uuids::random_generator()()),
 	m_mq (create_only, boost::uuids::to_string (m_uuid).c_str (), YAIL_PUBSUB_SHMEM_RECEIVER_QUEUE_DEPTH, YAIL_PUBSUB_MAX_MSG_SIZE),
-	//m_op_mutex (),
-	//m_op_available (),
 	m_op_queue (),
 	m_thread (&shmem_impl::receiver::do_work, this),
 	m_stop_work (false)
@@ -281,32 +306,66 @@ void shmem_impl::receiver::do_work ()
 	bool stop = false;
 	while (!stop)
 	{
-		auto pbuf (std::make_shared<yail::buffer> (YAIL_PUBSUB_MAX_MSG_SIZE));
-		message_queue::size_type recvd_size; unsigned int priority;
-		m_mq.receive(pbuf->data (), pbuf->size (), recvd_size, priority);
-		if (recvd_size)
+		try
 		{
-			// resize buffer based on data received
-			pbuf->resize (recvd_size);
-			m_io_service.post ([this, pbuf] () {
-				if (!m_op_queue.empty())
-				{
-					auto op = std::move (m_op_queue.front ());
-					m_op_queue.pop ();
+			auto pbuf (std::make_shared<yail::buffer> (YAIL_PUBSUB_MAX_MSG_SIZE));
+			message_queue::size_type recvd_size; unsigned int priority;
+			m_mq.receive(pbuf->data (), pbuf->size (), recvd_size, priority);
+			if (recvd_size)
+			{
+				// resize buffer based on data received
+				pbuf->resize (recvd_size);
+				// completion operation if one is pending, otherwise enqueue received message.
+				m_io_service.post ([this, pbuf] () {
+					if (!m_op_queue.empty())
+					{
+						auto op = std::move (m_op_queue.front ());
+						m_op_queue.pop ();
 
-					op->m_buffer = std::move (*pbuf);
-					op->m_handler (yail::pubsub::error::success);
-				}
-				else
-				{
-					m_buffer_queue.push (std::move(*pbuf));
-				}
-			});
+						op->m_buffer = std::move (*pbuf);
+						op->m_handler (yail::pubsub::error::success);
+					}
+					else
+					{
+						m_buffer_queue.push (std::move(*pbuf));
+					}
+				});
+			}
+			else
+			{
+				stop = true;
+			}
 		}
-		else
+		catch (const interprocess_exception &ex)
 		{
+			YAIL_LOG_ERROR ("interprocess error: " << ex.what ());
+
+			complete_ops_with_error (yail::pubsub::error::system_error);
+
+			// we can't recover from this here. cease operation.
 			stop = true;
 		}
+		catch (const std::bad_alloc &ex)
+		{
+			YAIL_LOG_ERROR ("receive buffer allocation error: " << ex.what ());
+
+			// assume temporary resource unavailability..just delay resuming operation
+			sleep (1);
+		}
+	}
+}
+
+void shmem_impl::receiver::complete_ops_with_error (const boost::system::error_code &ec)
+{
+	YAIL_LOG_TRACE (this);
+
+	while (!m_op_queue.empty ())
+	{
+		m_io_service.post ([this, ec] () {
+			auto op = std::move (m_op_queue.front ());
+			m_op_queue.pop ();
+			op->m_handler (ec);
+		});
 	}
 }
 
