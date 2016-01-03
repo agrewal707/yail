@@ -11,5 +11,5 @@ add_definitions (-fPIC)
 # Generate code in build tree
 PROTOBUF_GENERATE_CPP(ProtoSources ProtoHeaders ${ProtoFiles})
 
-add_library(${PROJECT_NAME}_pubsub_messages STATIC ${ProtoSources} ${ProtoHeaders})
-target_include_directories(${PROJECT_NAME}_pubsub_messages PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+add_library(${PROJECT_NAME}_rpc_messages STATIC ${ProtoSources} ${ProtoHeaders})
+target_include_directories(${PROJECT_NAME}_rpc_messages PUBLIC ${CMAKE_CURRENT_BINARY_DIR})

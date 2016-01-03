@@ -1,0 +1,29 @@
+package yail.rpc.detail.messages;
+option optimize_for = CODE_SIZE;
+
+message rpc_common
+{
+	required uint32 version = 1 [default = 0];
+	required uint32 id = 2;
+	required string service_name = 3;
+	required string rpc_name = 4;
+	required string rpc_type_name = 5;
+}
+
+message rpc_request
+{
+	required rpc_common common = 1;
+  required bytes data = 2;
+}
+
+message rpc_response
+{
+	enum Status
+	{
+		SUCCESS = 1;
+		FAILURE = 2;
+	}
+	required rpc_common common = 1;
+	required Status status = 2;
+  optional bytes data = 3;
+}

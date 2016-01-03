@@ -29,7 +29,13 @@ MESSAGE(STATUS "boost include: ${Boost_INCLUDE_DIRS}")
 MESSAGE(STATUS "boost libs: ${Boost_LIBRARIES}")
 
 # internal sub libraries
+if(YAIL_PUBSUB_ENABLE)
 add_subdirectory (pubsub/detail/messages)
+endif(YAIL_PUBSUB_ENABLE)
+
+if(YAIL_RPC_ENABLE)
+add_subdirectory (rpc/detail/messages)
+endif(YAIL_RPC_ENABLE)
 
 # header paths
 include_directories(
@@ -44,12 +50,19 @@ link_directories(
 )
 
 # build
-#file (GLOB YAIL_SOURCES impl/*.cpp pubsub/impl/*.cpp  pubsub/detail/impl/*.cpp pubsub/transport/impl/*.cpp  pubsub/transport/detail/impl/*.cpp)
-file (GLOB YAIL_SOURCES impl/*.cpp pubsub/impl/*.cpp  pubsub/detail/impl/*.cpp)
+file (GLOB YAIL_SOURCES impl/*.cpp)
 
+file (GLOB YAIL_PUBSUB_SOURCES pubsub/impl/*.cpp  pubsub/detail/impl/*.cpp)
 file (GLOB YAIL_PUBSUB_UDP_TRANSPORT_SOURCES pubsub/transport/impl/udp*.cpp  pubsub/transport/detail/impl/udp*.cpp)
-
 file (GLOB YAIL_PUBSUB_SHMEM_TRANSPORT_SOURCES pubsub/transport/impl/shmem*.cpp  pubsub/transport/detail/impl/shmem*.cpp)
+
+file (GLOB YAIL_RPC_SOURCES rpc/impl/*.cpp  rpc/detail/impl/*.cpp)
+file (GLOB YAIL_RPC_UNIX_DOMAIN_TRANSPORT_SOURCES rpc/transport/impl/unix_domain*.cpp  rpc/transport/detail/impl/unix_domain*.cpp)
+
+if(YAIL_PUBSUB_ENABLE)
+	list(APPEND YAIL_SOURCES ${YAIL_PUBSUB_SOURCES})
+	list(APPEND YAIL_MESSAGES_LIBS ${PROJECT_NAME}_pubsub_messages)
+endif(YAIL_PUBSUB_ENABLE)
 
 if(YAIL_PUBSUB_ENABLE_UDP_TRANSPORT)
 	list(APPEND YAIL_SOURCES ${YAIL_PUBSUB_UDP_TRANSPORT_SOURCES})
@@ -59,8 +72,19 @@ if(YAIL_PUBSUB_ENABLE_SHMEM_TRANSPORT)
 	list(APPEND YAIL_SOURCES ${YAIL_PUBSUB_SHMEM_TRANSPORT_SOURCES})
 endif(YAIL_PUBSUB_ENABLE_SHMEM_TRANSPORT)
 
+if(YAIL_RPC_ENABLE)
+	list(APPEND YAIL_SOURCES ${YAIL_RPC_SOURCES})
+	list(APPEND YAIL_MESSAGES_LIBS ${PROJECT_NAME}_rpc_messages)
+endif(YAIL_RPC_ENABLE)
+
+if(YAIL_RPC_ENABLE_UNIX_DOMAIN_TRANSPORT)
+	list(APPEND YAIL_SOURCES ${YAIL_RPC_UNIX_DOMAIN_TRANSPORT_SOURCES})
+endif(YAIL_RPC_ENABLE_UNIX_DOMAIN_TRANSPORT)
+
+MESSAGE(STATUS "messages libs: ${YAIL_MESSAGES_LIBS}")
+
 add_library(${PROJECT_NAME} ${YAIL_SOURCES})
-target_link_libraries (${PROJECT_NAME} ${PROJECT_NAME}_messages ${Boost_LIBRARIES} -lrt)
+target_link_libraries (${PROJECT_NAME} ${YAIL_MESSAGES_LIBS} ${Boost_LIBRARIES} -lrt)
 
 # install lib
 set_target_properties(${PROJECT_NAME} PROPERTIES

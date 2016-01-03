@@ -13,10 +13,19 @@ option (YAIL_USES_BOOST_ASIO
 	"Use boost::asio as yail::io_sevice" ON)
 option (YAIL_BUILD_BOOST_ASIO_LIBRARY
 	"Build boost asio as standlone shared library" ON)
+
+option (YAIL_PUBSUB_ENABLE
+	"Enable pubsub support in the library" ON)
 option (YAIL_PUBSUB_ENABLE_SHMEM_TRANSPORT
-	"Instantiate shmem transport based yail service in the library" ON)
+	"Enable shmem transport for pubsub service" ON)
 option (YAIL_PUBSUB_ENABLE_UDP_TRANSPORT
-	"Instantiate udp transport based yail service in the library" OFF)
+	"Enable udp transport for pubsub service" OFF)
+
+option (YAIL_RPC_ENABLE
+	"Enable rpc support in the library" ON)
+option (YAIL_RPC_ENABLE_UNIX_DOMAIN_TRANSPORT
+	"Enable udp transport for pubsub service" ON)
+
 Option (BUILD_SHARED_LIBS
 	"Set to OFF to build static libraries" ON)
 
@@ -24,6 +33,7 @@ Option (BUILD_SHARED_LIBS
 set (YAIL_PUBSUB_MAX_MSG_SIZE 2048)
 set (YAIL_PUBSUB_SHMEM_SEGMENT_SIZE 65535)
 set (YAIL_PUBSUB_SHMEM_RECEIVER_QUEUE_DEPTH 15)
+set (YAIL_RPC_MAX_MSG_SIZE 1024)
 
 # external dependencies
 if (YAIL_BUILD_BOOST_ASIO_LIBRARY)

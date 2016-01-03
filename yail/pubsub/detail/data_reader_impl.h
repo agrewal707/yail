@@ -52,7 +52,7 @@ namespace pubsub {
 namespace detail {
 
 //
-// data_writer_impl::read_operation
+// data_reader_impl::read_operation
 //
 template <typename T, typename Transport>
 template <typename Handler>
