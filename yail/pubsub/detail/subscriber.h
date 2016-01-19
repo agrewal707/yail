@@ -45,6 +45,9 @@ struct subscriber_common
 	/// processs pubsub data
 	void process_pubsub_data (const messages::pubsub_data &data);
 
+	/// complete all pending ops with an error
+	void complete_ops_with_error (const boost::system::error_code &ec);
+
 	struct receive_operation
 	{
 		YAIL_API receive_operation (std::string &topic_data, const receive_handler &handler);
@@ -171,13 +174,12 @@ void subscriber<Transport>::do_receive ()
 			{
 				if (!ec)
 				{
-					this->process_pubsub_message (m_buffer);
+					process_pubsub_message (m_buffer);
 					do_receive ();
 				}
-				else if (ec != boost::asio::error::operation_aborted)
+				else
 				{
-					// TODO - reset transport ?
-					do_receive ();
+					complete_ops_with_error (ec);
 				}
 			});
 }

@@ -15,8 +15,7 @@ int main(int argc, char* argv[])
 	try
 	{
 		boost::asio::io_service io_service;
-		transport tr (io_service);
-		yail::pubsub::service<transport> pubsub_service (io_service, tr);
+		yail::pubsub::service<transport> pubsub_service (io_service);
 		yail::pubsub::topic<messages::hello> hello_topic ("greeting");
 		yail::pubsub::data_writer<messages::hello, transport> hello_dw (pubsub_service, hello_topic);
 

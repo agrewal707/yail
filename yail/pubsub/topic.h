@@ -69,9 +69,9 @@ private:
 	template <typename U, typename Transport>
 	friend class data_reader;
 	
-	impl_type& get_impl () { return m_impl; }
+	impl_type& get_impl () { return *m_impl; }
 
-	impl_type &m_impl;
+	std::unique_ptr<impl_type> m_impl;
 };
 
 } // namespace pubsub

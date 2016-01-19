@@ -8,7 +8,7 @@ namespace pubsub {
 
 template <typename T>
 topic<T>::topic (const std::string& name) :
-	m_impl (*(new impl_type {name}))
+	m_impl (yail::make_unique<impl_type> (name))
 {}
 
 template <typename T>

@@ -107,7 +107,7 @@ public:
 				if (construct_pubsub_message (dwctx->m_topic_name, dwctx->m_topic_type_name, topic_data, op->m_buffer))
 				{
 					m_transport.async_send (op->m_buffer,
-						[this, &dwctx] (const boost::system::error_code &ec)
+						[&dwctx] (const boost::system::error_code &ec)
 							{
 								auto op = std::move (dwctx->m_op_queue.front ());
 								dwctx->m_op_queue.pop ();

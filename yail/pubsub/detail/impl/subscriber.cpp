@@ -101,14 +101,19 @@ void subscriber_common::process_pubsub_message (const yail::buffer &buffer)
 	messages::pubsub msg;
 	if (msg.ParseFromArray (buffer.data (), buffer.size ()))
 	{
-		if (msg.header ().type () == messages::pubsub_header::DATA)
+		if (msg.header ().version () != 1)
 		{
-			process_pubsub_data (msg.data ());
+			YAIL_LOG_WARNING ("invalid pubsub message version");
+			return;
 		}
-		else
+
+		if (msg.header ().type () != messages::pubsub_header::DATA)
 		{
 			YAIL_LOG_WARNING ("unknown pubsub message received");
+			return;
 		}
+
+		process_pubsub_data (msg.data ());
 	}
 	else
 	{
@@ -140,6 +145,26 @@ void subscriber_common::process_pubsub_data (const messages::pubsub_data &data)
 			else
 			{
 				drctx->m_data_queue.push (data.topic_data ());
+			}
+		}
+	}
+}
+
+void subscriber_common::complete_ops_with_error (const boost::system::error_code &ec)
+{
+	YAIL_LOG_TRACE (this);
+
+	for (auto &val : m_topic_map)
+	{
+		auto &drmap = val.second;
+		for (auto &val2 : *drmap)
+		{
+			auto &dr = val2.second;
+			while (!dr->m_op_queue.empty ())
+			{
+				auto op = std::move (dr->m_op_queue.front ());
+				dr->m_op_queue.pop ();
+				op->m_handler (ec);
 			}
 		}
 	}
