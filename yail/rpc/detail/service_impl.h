@@ -4,9 +4,9 @@
 #include <yail/rpc/service.h>
 
 #include <yail/log.h>
-#include <yail/exception.h>
 #include <yail/rpc/detail/client.h>
 #include <yail/rpc/detail/server.h>
+#include <yail/rpc/detail/service_locator.h>
 
 //
 // yail::rpc::detail::service_impl
@@ -14,9 +14,6 @@
 namespace yail {
 namespace rpc {
 namespace detail {
-
-YAIL_DECLARE_EXCEPTION(duplicate_service);
-YAIL_DECLARE_EXCEPTION(unknown_service);
 
 template <typename Transport>
 class service_impl
@@ -32,34 +29,7 @@ public:
 
 	void set_service_location (const std::string &service_name, const transport_endpoint &ep)
 	{
-		const auto it = m_service_map.find (service_name);
-		if (it != m_service_map.end ())
-		{
-			YAIL_THROW_EXCEPTION (
-				duplicate_service, "service already exists", 0);
-		}
-		
-		m_service_map[service_name] = ep;
-	}
-
-	transport_endpoint get_service_location (const std::string &service_name) const
-	{
-		const auto it = m_service_map.find (service_name);
-		if (it == m_service_map.end ())
-		{
-			// Check if transport suports implicit derivation of ep from service_name
-			const auto result = transport_traits<Transport>::derive_ep_from_service_name (service_name);
-			if (result.first)
-			{
-				return result.second;
-			}
-			else
-			{
-				YAIL_THROW_EXCEPTION (
-					unknown_service, "service does not exist", 0);
-			}
-		}
-		return m_service_map[service_name];
+		m_service_locator.set_service_location (service_name, ep);
 	}
 
 	yail::io_service& get_io_service () 
@@ -81,10 +51,9 @@ private:
 	yail::io_service &m_io_service;
 	Transport &m_transport;
 	bool m_destroy_transport;
+	service_locator<Transport> m_service_locator;
 	client<Transport> m_client;
 	server<Transport> m_server;
-	using service_map = std::unordered_map<std::string, transport_endpoint>;
-	service_map m_service_map;
 };
 
 } // namespace detail
@@ -100,8 +69,8 @@ service_impl<Transport>::service_impl (yail::io_service &io_service) :
 	m_io_service (io_service),
 	m_transport (*(new Transport {io_service})),
 	m_destroy_transport (true),
-	m_client (io_service, this, m_transport),
-	m_server (io_service, this, m_transport)
+	m_client (m_service_locator, m_transport),
+	m_server (m_service_locator, m_transport)
 {
 	YAIL_LOG_TRACE (this);
 }
@@ -111,8 +80,8 @@ service_impl<Transport>::service_impl (yail::io_service &io_service, Transport &
 	m_io_service (io_service),
 	m_transport (transport),
 	m_destroy_transport (false),
-	m_client (io_service, this, m_transport),
-	m_server (io_service, this, m_transport)
+	m_client (m_service_locator, m_transport),
+	m_server (m_service_locator, m_transport)
 {
 	YAIL_LOG_TRACE (this);
 }

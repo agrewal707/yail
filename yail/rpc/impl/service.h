@@ -28,6 +28,7 @@ service<Transport>::~service ()
 	YAIL_LOG_TRACE (this);
 }
 
+template <typename Transport>
 void service<Transport>::set_service_location (const std::string &service_name, const transport_endpoint &ep)
 {
 	m_impl->set_service_location (service_name, ep);

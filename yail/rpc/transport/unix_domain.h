@@ -93,6 +93,30 @@ public:
 		const yail::buffer &req_buffer, yail::buffer &res_buffer, const Handler &handler);
 
 	/**
+	 * @brief Install handler in the server to receive messages from clients
+	 *
+	 * @param[in] handler The handler to call on receiving messages from clients.
+	 */
+	template <typename Handler>
+	void server_set_receive_handler (const Handler &handler);
+
+	/**
+	 * @brief Add server to run on given endpoint
+	 *
+	 * @param[in] ep The server transport endpoint.
+	 *
+	 */
+	void server_add (const endpoint &ep);
+
+	/**
+	 * @brief Remove server running on given endpoint
+	 *
+	 * @param[in] ep The server transport endpoint.
+	 *
+	 */
+	void server_remove (const endpoint &ep);
+
+	/**
 	 * @brief Send message buffer synchronously from server to client.
 	 *
 	 * @param[in] trctx The transport session context.

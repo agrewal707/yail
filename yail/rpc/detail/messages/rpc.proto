@@ -18,12 +18,7 @@ message rpc_request
 
 message rpc_response
 {
-	enum Status
-	{
-		SUCCESS = 1;
-		FAILURE = 2;
-	}
 	required rpc_common common = 1;
-	required Status status = 2;
+	required bool status = 2; // true = success, false = failure
   optional bytes data = 3;
 }

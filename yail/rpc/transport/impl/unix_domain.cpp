@@ -27,6 +27,16 @@ void unix_domain::client_send_n_receive (const endpoint &ep,
 	m_impl->client_send_n_receive (ep, req_buffer, res_buffer, ec);
 }
 
+void unix_domain::server_add (const endpoint &ep)
+{
+	m_impl->server_add (ep);
+}
+
+void unix_domain::server_remove (const endpoint &ep)
+{
+	m_impl->server_remove (ep);
+}
+
 void unix_domain::server_send (void *trctx, const yail::buffer &res_buffer, boost::system::error_code &ec)
 {
 	m_impl->server_send (trctx, res_buffer, ec);

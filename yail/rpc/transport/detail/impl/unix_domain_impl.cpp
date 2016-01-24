@@ -41,7 +41,7 @@ void unix_domain_impl::client::send_n_receive (const endpoint &ep,
 	size_buffer[3] = req_buffer.size () >> 0;
 
 	// write buffer sequence = request size buffer + request buffer
-	std::vector<const_buffer> bufs;
+	std::vector<boost::asio::const_buffer> bufs;
 	bufs.push_back(boost::asio::buffer(size_buffer));
 	bufs.push_back(boost::asio::buffer(req_buffer.data (), req_buffer.size ()));
 	boost::asio::write(socket, bufs, ec);
@@ -59,13 +59,14 @@ void unix_domain_impl::client::send_n_receive (const endpoint &ep,
 
 	// read response
 	res_buffer.resize (response_size);
-	boost::asio::read (socket, boost::asio::buffer(res_buffer), ec);
+	boost::asio::read (socket, boost::asio::buffer(res_buffer.data (), res_buffer.size ()), ec);
 }
 
 //
 // unix_domain_impl::server::session
 //
-unix_domain_impl::server::session::session(boost::asio::io_service& io_service, const receive_handler &receive_handler) :
+unix_domain_impl::server::session::session(yail::io_service& io_service, const receive_handler &receive_handler) :
+	m_io_service (io_service),
 	m_socket (io_service),
 	m_receive_handler (receive_handler)
 {
@@ -94,9 +95,9 @@ void unix_domain_impl::server::session::handle_read (const boost::system::error_
 	if (!ec)
 	{
 		pbuf->resize (bytes_read);
-		m_io_service.post (m_receive_handler, this, pbuf);
+		m_io_service.post (std::bind (m_receive_handler, this, pbuf));
 	}
-	else (ec != boost::asio::error::operation_aborted)
+	else if (ec != boost::asio::error::operation_aborted)
 	{
 		// TODO
 	}
@@ -113,16 +114,16 @@ void unix_domain_impl::server::session::write (const yail::buffer &buf, boost::s
 // unix_domain_impl::server
 //
 unix_domain_impl::server::server (yail::io_service &io_service, const endpoint &ep, const receive_handler &handler) :
-	m_io_service_(io_service),
+	m_io_service (io_service),
   m_acceptor (io_service, stream_protocol::endpoint (ep)),
-	m_receive_handler (receive_handler),
+	m_receive_handler (handler),
 	m_ref_count (1)
 {
 	YAIL_LOG_TRACE (this);
 
 	auto new_session (std::make_shared<session> (m_io_service, m_receive_handler));
  	m_acceptor.async_accept (new_session->socket (),
-		std::bind(&server::handle_accept, this, new_session, _1));
+		std::bind(&server::handle_accept, this, new_session, std::placeholders::_1));
 }
 
 unix_domain_impl::server::~server ()
@@ -143,7 +144,7 @@ void unix_domain_impl::server::handle_accept (std::shared_ptr<session> new_sessi
 
 		auto new_session (std::make_shared<session> (m_io_service, m_receive_handler));
 		m_acceptor.async_accept (new_session->socket (),
-				boost::bind(&server::handle_accept, this, new_session, _1));
+				std::bind(&server::handle_accept, this, new_session, std::placeholders::_1));
 	}
 	catch (const std::exception &ex)
 	{
@@ -155,6 +156,7 @@ void unix_domain_impl::server::handle_accept (std::shared_ptr<session> new_sessi
 // unix_domain_impl
 //
 unix_domain_impl::unix_domain_impl (yail::io_service &io_service) :
+	m_io_service (io_service),
 	m_client (io_service),
 	m_server_map ()
 {

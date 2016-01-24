@@ -16,7 +16,7 @@ template <typename Transport>
 class client_impl
 {
 public:
-	client_impl (client_impl<Transport> &service);
+	client_impl (service_impl<Transport> &service);
 	~client_impl ();
 
 	template <typename Request, typename Response>
@@ -34,7 +34,7 @@ private:
 		call_operation (const rpc_impl<Request, Response> &service_rpc, Response &res, const Handler &handler);
 		~call_operation ();
 
-		rpc_impl<Request, Response> &m_service_rpc;
+		const rpc_impl<Request, Response> &m_service_rpc;
 		Response &m_res;
 		Handler m_handler;
 		std::string m_res_data;
@@ -58,8 +58,8 @@ namespace detail {
 // client_impl::call_operation
 //
 template <typename Transport>
-template <typename Response, typename Handler>
-client_impl<Transport, Response, Handler>::call_operation<Handler>::call_operation (
+template <typename Request, typename Response, typename Handler>
+client_impl<Transport>::call_operation<Request, Response, Handler>::call_operation (
 		const rpc_impl<Request, Response> &service_rpc, Response &res, const Handler &handler) :
 	m_service_rpc (service_rpc),
 	m_res (res),
@@ -67,8 +67,8 @@ client_impl<Transport, Response, Handler>::call_operation<Handler>::call_operati
 {}
 
 template <typename Transport>
-template <typename Response, typename Handler>
-client_impl<Transport, Response, Handler>::call_operation<Handler>::~call_operation ()
+template <typename Request, typename Response, typename Handler>
+client_impl<Transport>::call_operation<Request, Response, Handler>::~call_operation ()
 {}
 
 //
@@ -89,13 +89,13 @@ void client_impl<Transport>::call (const std::string &service_name, const rpc_im
                                    const Request &req, Response &res, boost::system::error_code &ec)
 {
 	std::string req_data;
-	if (service_rpc->serialize (req, &req_data))
+	if (service_rpc.serialize (req, &req_data))
 	{
 		std::string res_data;
-		m_service.get_client ().call (service_name, service_rpc.get_name (), rpc_type::get_rpc_type_name (), req_data, res_data, ec);
+		m_service.get_client ().call (service_name, service_rpc.get_name (), service_rpc.get_type_name (), req_data, res_data, ec);
 		if (!ec)
 		{
-			if (!service_rpc->deserialize (res, res_data))
+			if (!service_rpc.deserialize (res, res_data))
 			{
 				ec = yail::rpc::error::deserialization_failed;
 			}
@@ -113,16 +113,16 @@ void client_impl<Transport>::async_call (const std::string &service_name, const 
                                          const Request &req, Response &res, const Handler &handler)
 {
 	std::string req_data;
-	if (rpc_type::serialize (req, &req_data))
+	if (service_rpc.serialize (req, &req_data))
 	{
-		auto op = std::make_shared<call_operation<Request, Response, Handler>> (service_rpc, res, handler);
+		auto op (std::make_shared<call_operation<Request, Response, Handler>> (service_rpc, res, handler));
 
-		m_service.get_client ().async_call (service_name, service_rpc.get_name (), service_rpc.get_rpc_type_name (), req_data, op->m_res_data,
+		m_service.get_client ().async_call (service_name, service_rpc.get_name (), service_rpc.get_type_name (), req_data, op->m_res_data,
 			[op] (const boost::system::error_code &ec)
 			{
 				if (!ec)
 				{
-					if (!op->m_service_rpc->deserialize (op->m_res, op->m_res_data))
+					if (!op->m_service_rpc.deserialize (op->m_res, op->m_res_data))
 					{
 						op->m_handler (ec);
 					}

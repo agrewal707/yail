@@ -24,7 +24,7 @@ template <typename Request, typename Response>
 void client<Transport>::call (const std::string& service_name, const rpc<Request, Response> &service_rpc, 
                               const Request &req, Response &res, boost::system::error_code &ec)
 {
-	m_impl->call (service_name, service_rpc->get_impl (), req, res, ec);
+	m_impl->call (service_name, service_rpc.get_impl (), req, res, ec);
 }
 
 template <typename Transport> 
@@ -32,7 +32,7 @@ template <typename Request, typename Response, typename Handler>
 void client<Transport>::async_call (const std::string& service_name, const rpc<Request, Response> &service_rpc, 
 	                                  const Request &req, Response &res, const Handler &handler)
 {
-	m_impl->async_call (service_name, service_rpc->get_impl (), req, res, handler);
+	m_impl->async_call (service_name, service_rpc.get_impl (), req, res, handler);
 }
 
 } // namespace rpc

@@ -83,7 +83,7 @@ public:
 	 * @param[in] handler The handler to be called on receiving request for the given RPC.
 	 */
 	template <typename Request, typename Response, typename Handler>
-	void add_rpc (const rpc<Request, Response> &service_rpc, const handler &handler);
+	void add_rpc (const rpc<Request, Response> &service_rpc, const Handler &handler);
 
 	/**
 	 * @brief Reply to the RPC call with successful response.

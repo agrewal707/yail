@@ -3,12 +3,12 @@
 #include <yail/rpc/service.h>
 #include <yail/rpc/client.h>
 
-#include "messages.h"
+#include "rpcs.h"
 
 #define LOG_INFO(msg) std::cout << msg << std::endl
 #define LOG_ERROR(msg) std::cerr << msg << std::endl
 
-using transport = yail::rpc::transport::unix;
+using transport = yail::rpc::transport::unix_domain;
 
 int main(int argc, char* argv[])
 {
@@ -21,32 +21,34 @@ int main(int argc, char* argv[])
 
 		yail::rpc::client<transport> rpc_client (rpc_service);
 		yail::rpc::rpc<messages::hello_request, messages::hello_response> hello_rpc ("hello");
-		yail::rpc::rpc<messages::byte_request, messages::bye_response> bye_rpc ("bye");
+		yail::rpc::rpc<messages::bye_request, messages::bye_response> bye_rpc ("bye");
+
 
 		// sync rpc call
-		messages::hello_request req;
-		messages::hello_response res;
+		messages::hello_request hello_req;
+		hello_req.set_msg ("Hi");
+		messages::hello_response hello_res;
 		boost::system::error_code ec;
-		rpc_client.call("greeting_service", hello_rpc, req, res, ec);
+		rpc_client.call("greeting_service", hello_rpc, hello_req, hello_res, ec);
 		if (!ec)
 		{
-			//todo
+			LOG_INFO (hello_res.msg ());
 		}
 		else
 		{
 			LOG_ERROR ("error: " << ec);
 		}
-
+		
 		// async rpc call
-		messages::hello_request req;
-		messages::hello_response res;
-		boost::system::error_code ec;
-		rpc_client.async_call("greeting_service", hello_rpc, req, res,
-			[ &req, &res ](this) (const boost::system::error_code &ec)
+		messages::bye_request bye_req;
+		bye_req.set_msg ("Bye");
+		messages::bye_response bye_res;
+		rpc_client.async_call("greeting_service", bye_rpc, bye_req, bye_res,
+			[ &bye_req, &bye_res ] (const boost::system::error_code &ec)
 			{
 				if (!ec)
 				{
-					//todo
+					LOG_INFO (bye_res.msg ());
 				}
 				else
 				{

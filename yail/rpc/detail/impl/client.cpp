@@ -1,6 +1,7 @@
 #include <yail/rpc/detail/client.h>
 
 #include <yail/log.h>
+#include <yail/memory.h>
 #include <yail/rpc/detail/messages/yail.pb.h>
 
 namespace yail {

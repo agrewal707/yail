@@ -6,11 +6,11 @@
 #include <unordered_map>
 
 #include <yail/io_service.h>
-#include <yail/exception.h>
 #include <yail/buffer.h>
 #include <yail/memory.h>
 #include <yail/rpc/error.h>
 #include <yail/rpc/trans_context.h>
+#include <yail/rpc/detail/service_locator.h>
 
 //
 // server
@@ -33,8 +33,8 @@ struct trans_context_impl
 		ERROR
 	};
 
-	trans_context_impl (void *trctx, rpc_context *rctx);
-	~trans_context_impl ();
+	YAIL_API trans_context_impl (void *trctx, rpc_context *rctx, const int req_id);
+	YAIL_API ~trans_context_impl ();
 
 	void *m_trctx;
 	rpc_context *m_rctx;
@@ -44,16 +44,16 @@ struct trans_context_impl
 
 struct rpc_context
 {
-	using rpc_handler = std::function<void (yail::rpc::context &ctx, const std::string &req_data)>;
+	using rpc_handler = std::function<void (yail::rpc::trans_context &ctx, const std::string &req_data)>;
 
-	rpc_context (const std::string &service_name, const std::string &rpc_name, const std::string &rpc_type_name, 
+	YAIL_API rpc_context (const std::string &service_name, const std::string &rpc_name, const std::string &rpc_type_name, 
 							 const rpc_handler &handler);
-	~rpc_context ();
+	YAIL_API ~rpc_context ();
 
 	std::string m_service_name;
 	std::string m_rpc_name;
-	std::string m_rpc_type_name, 
-	handler &m_rpc_handler;
+	std::string m_rpc_type_name;
+	rpc_handler m_rpc_handler;
 	using trans_context_map = std::unordered_map<trans_context_impl*, std::unique_ptr<trans_context_impl>>;
 	trans_context_map m_trans_context_map;
 };
@@ -74,7 +74,7 @@ struct server_common
 
 	YAIL_API bool construct_rpc_response (yail::rpc::trans_context &tctx, 
 		const std::string &service_name, const std::string &rpc_name, const std::string &rpc_type_name, 
-		const bool res_status const std::string &res_data, yail::buffer &res_buffer);
+		const bool res_status, const std::string &res_data, yail::buffer &res_buffer);
 
 	using rpc_map = std::unordered_map<std::string, std::unique_ptr<rpc_context>>;
 	rpc_map m_rpc_map;
@@ -87,19 +87,24 @@ template <typename Transport>
 class server : private server_common
 {
 public:
-	server (service<Transport> &service, Transport &transport);
+	server (service_locator<Transport> &service_locator, Transport &transport);
 	~server ();
 
 	void add_provider (const std::string &service_name)
 	{
-		const auto ep = get_service_location (service_name);
-		m_transport->add_server (ep, std::bind (&provider_common::process_rpc_request, this));
+		const auto ep = m_service_locator.get_service_location (service_name);
+		m_transport.server_add (ep);
 	}
 
 	void remove_provider (const std::string &service_name)
 	{
-		const auto ep = get_service_location (service_name);
-		m_transport->remove_server (ep);
+		const auto ep = m_service_locator.get_service_location (service_name);
+		m_transport.server_remove (ep);
+	}
+
+	void handle_transport_server_receive (void *trctx, std::shared_ptr<yail::buffer> req_buffer)
+	{
+		server_common::process_rpc_request (trctx, req_buffer);
 	}
 
 	template <typename Handler>
@@ -110,7 +115,7 @@ public:
 		std::string rpc_id (service_name + rpc_name + rpc_type_name);
 
 		// Create and store rpc context
-		auto ctx (yail::make_unique<context_impl> (service_name, rpc_name, rpc_type_name, handler);
+		auto ctx (yail::make_unique<rpc_context> (service_name, rpc_name, rpc_type_name, handler));
 		auto result = m_rpc_map.insert (std::make_pair (rpc_id, std::move (ctx)));
 		if (!result.second)
 		{
@@ -137,7 +142,7 @@ public:
 		}
 
 		boost::system::error_code ec;
-		m_transport->server_send (tctx->m_trctx, res_buffer, ec);
+		m_transport.server_send (tctx.m_trctx, res_buffer, ec);
 		if (ec && ec != boost::asio::error::operation_aborted)
 		{
 			YAIL_THROW_EXCEPTION (
@@ -145,10 +150,10 @@ public:
 		}
 
 		// Remove from delayed transaction context map if it exists
-		const auto it = m_trans_context_map.find (&tctx);
-		if (it != m_trans_context_map.end ()
+		auto it = tctx.m_rctx->m_trans_context_map.find (&tctx);
+		if (it != tctx.m_rctx->m_trans_context_map.end ())
 		{
-			m_trans_context_map.erase (it);	
+			tctx.m_rctx->m_trans_context_map.erase (it);	
 		}
 	}
 
@@ -165,7 +170,7 @@ public:
 	}
 
 private:
-	service<Transport> &m_service;
+	service_locator<Transport> &m_service_locator;
 	Transport &m_transport;
 };
 
@@ -178,10 +183,13 @@ namespace rpc {
 namespace detail {
 
 template <typename Transport>
-server<Transport>::server (service<Transport> &service, Transport &transport) :
-	m_service (service),
+server<Transport>::server (service_locator<Transport> &service_locator, Transport &transport) :
+	m_service_locator (service_locator),
 	m_transport (transport)
-{}
+{
+	m_transport.server_set_receive_handler (std::bind (
+		&server::handle_transport_server_receive, this, std::placeholders::_1, std::placeholders::_2));
+}
 
 template <typename Transport>
 server<Transport>::~server ()

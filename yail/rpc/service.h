@@ -26,7 +26,7 @@ template <typename Transport>
 class client;
 
 template <typename Transport>
-class server;
+class provider;
 
 } // namespace rpc
 } // namespace yail

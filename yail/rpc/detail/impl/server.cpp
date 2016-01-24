@@ -13,7 +13,7 @@ YAIL_DEFINE_EXCEPTION (rpc_mismatch);
 //
 // trans_context_impl
 //
-trans_context_impl::trans_context_impl (const void *trctx, const rpc_context *rctx, const int req_id):
+trans_context_impl::trans_context_impl (void *trctx, rpc_context *rctx, const int req_id):
 	m_trctx (trctx),
 	m_rctx (rctx),
 	m_req_id (req_id)
@@ -50,14 +50,14 @@ server_common::~server_common ()
 bool server_common::validate_rpc_response (yail::rpc::trans_context &tctx,
 	const std::string &service_name, const std::string &rpc_name, const std::string &rpc_type_name)
 {
-	return (tctx->m_rctx->m_service_name == service_name) && 
-	       (tctx->m_rctx->m_rpc_name == rpc_name) && 
-				 (tctx->m_rctx->m_rpc_type_name == rpc_type_name);
+	return (tctx.m_rctx->m_service_name == service_name) && 
+	       (tctx.m_rctx->m_rpc_name == rpc_name) && 
+				 (tctx.m_rctx->m_rpc_type_name == rpc_type_name);
 }
 
 bool server_common::construct_rpc_response (yail::rpc::trans_context &tctx, 
 	const std::string &service_name, const std::string &rpc_name, const std::string &rpc_type_name, 
-	const bool res_status const std::string &res_data, yail::buffer &res_buffer)
+	const bool res_status, const std::string &res_data, yail::buffer &res_buffer)
 {
 	bool retval = false;
 
@@ -102,7 +102,7 @@ void server_common::process_rpc_request (void *trctx, std::shared_ptr<yail::buff
 		if (msg.common ().version () != 1)
 		{
 			YAIL_LOG_WARNING ("invalid rpc message version");
-			goto exit;
+			return;
 		}
 
 		std::string rpc_id (msg.common ().service_name () + msg.common ().rpc_name () +  msg.common ().rpc_type_name ());
@@ -112,7 +112,7 @@ void server_common::process_rpc_request (void *trctx, std::shared_ptr<yail::buff
 			auto &rctx = it->second;
 
 			// allocate transaction context
-			auto tctx (std::make_unique<trans_context> (trctx, rctx.get (), msg.common ().id ()));
+			auto tctx (yail::make_unique<trans_context> (trctx, rctx.get (), msg.common ().id ()));
 	
 			// call provider handler
 			rctx->m_rpc_handler (*tctx, msg.data ());

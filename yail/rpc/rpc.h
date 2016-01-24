@@ -69,7 +69,7 @@ private:
 	template <typename Transport>
 	friend class provider;
 	
-	impl_type& get_impl () { return *m_impl; }
+	const impl_type& get_impl () const { return *m_impl; }
 
 	std::unique_ptr<impl_type> m_impl;
 };

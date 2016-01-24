@@ -33,23 +33,23 @@ link_directories(
 )
 
 # build
-set (PUB_SOURCES
- pub.cpp
+set (CLIENT_SOURCES
+ client.cpp
 )
 
-set (SUB_SOURCES
- sub.cpp
+set (PROVIDER_SOURCES
+ provider.cpp
 )
 
-set (PUB_EXE hello_pub)
-set (SUB_EXE hello_sub)
+set (CLIENT_EXE hello_client)
+set (PROVIDER_EXE hello_provider)
 
-add_executable (${PUB_EXE} ${PUB_SOURCES})
-target_link_libraries (${PUB_EXE} hello_messages ${PROJECT_NAME} ${boost_asio_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LIBRARY} -lpthread)
+add_executable (${CLIENT_EXE} ${CLIENT_SOURCES})
+target_link_libraries (${CLIENT_EXE} hello_rpc_messages ${PROJECT_NAME} ${boost_asio_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LIBRARY} -lpthread)
 
-add_executable (${SUB_EXE} ${SUB_SOURCES})
-target_link_libraries (${SUB_EXE} hello_messages ${PROJECT_NAME} ${boost_asio_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LIBRARY} -lpthread)
+add_executable (${PROVIDER_EXE} ${PROVIDER_SOURCES})
+target_link_libraries (${PROVIDER_EXE} hello_rpc_messages ${PROJECT_NAME} ${boost_asio_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LIBRARY} -lpthread)
 
 # install
-install (TARGETS ${PUB_EXE} DESTINATION bin)
-install (TARGETS ${SUB_EXE} DESTINATION bin)
+install (TARGETS ${CLIENT_EXE} DESTINATION bin)
+install (TARGETS ${PROVIDER_EXE} DESTINATION bin)

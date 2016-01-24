@@ -67,7 +67,7 @@ rpc_impl<Request, Response>::rpc_impl (const std::string& name) :
 {}
 
 template <typename Request, typename Response>
-rpc_impl<Request, ResponseT>::~rpc_impl ()
+rpc_impl<Request, Response>::~rpc_impl ()
 {}
 
 } // namespace detail

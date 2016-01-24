@@ -22,6 +22,15 @@ public:
 	template <typename Request, typename Response, typename Handler>
 	void add_rpc (const rpc_impl<Request, Response> &service_rpc, const Handler &handler);
 
+	template <typename Request, typename Response>
+	void reply_ok (yail::rpc::trans_context &tctx, const rpc_impl<Request, Response> &service_rpc, const Response &res);
+
+	template <typename Request, typename Response>
+	void reply_error (yail::rpc::trans_context &tctx, const rpc_impl<Request, Response> &service_rpc, const std::string &errmsg);
+
+	template <typename Request, typename Response>
+	void reply_delayed (yail::rpc::trans_context &tctx, const rpc_impl<Request, Response> &service_rpc);
+
 private:
 	template <typename Request, typename Response, typename Handler>
 	struct context
@@ -29,7 +38,7 @@ private:
 		context (const rpc_impl<Request, Response> &service_rpc, const Handler &handler);
 		~context ();
 
-		rpc_impl<Request, Response> &m_service_rpc;
+		const rpc_impl<Request, Response> &m_service_rpc;
 		Handler m_handler;
 	};
 
@@ -69,7 +78,7 @@ provider_impl<Transport>::context<Request, Response, Handler>::~context ()
 template <typename Transport>
 provider_impl<Transport>::provider_impl (service_impl<Transport> &service, const std::string &service_name) :
 	m_service (service),
-	m_service_name (name)
+	m_service_name (service_name)
 {
 	m_service.get_server ().add_provider (m_service_name);
 }
@@ -86,11 +95,11 @@ void provider_impl<Transport>::add_rpc (const rpc_impl<Request, Response> &servi
 {
 	auto pctx = std::make_shared<context<Request, Response, Handler>> (service_rpc, handler);
 
-	m_service.get_server ().add_rpc (m_service_name, service_rpc.get_name (), service_rpc.get_rpc_type_name (),
+	m_service.get_server ().add_rpc (m_service_name, service_rpc.get_name (), service_rpc.get_type_name (),
 		[pctx] (yail::rpc::trans_context &tctx, const std::string &req_data)
 		{
 			Request req;
-			if (pctx->m_service_rpc->deserialize (req, req_data))
+			if (pctx->m_service_rpc.deserialize (req, req_data))
 			{
 				pctx->m_handler (tctx, req);
 			}
@@ -108,7 +117,7 @@ void provider_impl<Transport>::reply_ok (yail::rpc::trans_context &tctx, const r
 	std::string res_data;
 	if (service_rpc.serialize (res, &res_data))
 	{
-		m_service.get_server ().reply (tctx, m_service_name, service_rpc.get_name (), rpc_type::get_rpc_type_name (), true, res_data);
+		m_service.get_server ().reply (tctx, m_service_name, service_rpc.get_name (), service_rpc.get_type_name (), true, res_data);
 	}
 	else
 	{
@@ -120,14 +129,14 @@ template <typename Transport>
 template <typename Request, typename Response>
 void provider_impl<Transport>::reply_error (yail::rpc::trans_context &tctx, const rpc_impl<Request, Response> &service_rpc, const std::string &errmsg)
 {
-	m_service.get_server ().reply (tctx, m_service_name, service_rpc.get_name (), rpc_type::get_rpc_type_name (), false, errmsg);
+	m_service.get_server ().reply (tctx, m_service_name, service_rpc.get_name (), service_rpc.get_type_name (), false, errmsg);
 }
 
 template <typename Transport>
 template <typename Request, typename Response>
 void provider_impl<Transport>::reply_delayed (yail::rpc::trans_context &tctx, const rpc_impl<Request, Response> &service_rpc)
 {
-	m_service.get_server ().reply_delayed (tctx, m_service_name, service_rpc.get_name (), rpc_type::get_rpc_type_name ());
+	m_service.get_server ().reply_delayed (tctx, m_service_name, service_rpc.get_name (), service_rpc.get_type_name ());
 }
 
 } // namespace detail

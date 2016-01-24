@@ -4,6 +4,7 @@
 #include <yail/rpc/transport/unix_domain.h>
 
 #include <functional>
+#include <unordered_map>
 #include <yail/memory.h>
 
 //
@@ -14,11 +15,12 @@ namespace rpc {
 namespace transport {
 namespace detail {
 
+using boost::asio::local::stream_protocol;
+
 class unix_domain_impl
 {
 public:
 	using endpoint = unix_domain::endpoint;
-	using boost::asio::local::stream_protocol;
 
 	//
 	// Client
@@ -46,7 +48,7 @@ public:
 			yail::buffer &m_res_buffer;
 			Handler m_handler;
 			char m_size_buffer[4];
-			std::vector<const_buffer> m_bufs;
+			std::vector<boost::asio::const_buffer> m_bufs;
 			stream_protocol::socket m_socket;
 		};
 
@@ -64,7 +66,7 @@ public:
 		class session : public std::enable_shared_from_this<session>
 		{
 		public:
-			session (boost::asio::io_service& io_service, const receive_handler &receive_handler);
+			session (yail::io_service &io_service, const receive_handler &receive_handler);
 			~session ();
 
 			stream_protocol::socket& socket() { return m_socket; }
@@ -75,14 +77,15 @@ public:
 		private:
 			void handle_read (const boost::system::error_code &ec, size_t bytes_read, std::shared_ptr<yail::buffer> pbuf);
 
+			yail::io_service &m_io_service;
 			stream_protocol::socket m_socket;
-			receive_handler &m_receive_handler;
+			const receive_handler &m_receive_handler;
 		};
 
 		server (yail::io_service &io_service, const endpoint &ep, const receive_handler &receive_handler);
 		~server ();
 
-		void get_ref_count () { return m_ref_count; }
+		uint32_t get_ref_count () { return m_ref_count; }
 		void incr_ref_count () { ++m_ref_count; }
 		void decr_ref_count () { --m_ref_count; }
 
@@ -91,7 +94,7 @@ public:
 
 		yail::io_service &m_io_service;
   	stream_protocol::acceptor m_acceptor;
-		receive_handler m_receive_handler;
+		const receive_handler m_receive_handler;
 		uint32_t m_ref_count;
 	};
 
@@ -112,7 +115,7 @@ public:
 
 	template <typename Handler>
 	void async_client_send_n_receive (const endpoint &ep,
-		const yail::buffer &req_buffer, yail::buffer &res_buffer, const Handler &handler);
+		const yail::buffer &req_buffer, yail::buffer &res_buffer, const Handler &handler)
 	{
 		m_client.async_send_n_receive (ep, req_buffer, res_buffer, handler);
 	}
@@ -120,23 +123,34 @@ public:
 	//
 	// Server API
 	//
-	void add_server (const endpoint &ep, const server::receive_handler &handler)
+	template <typename Handler>
+	void server_set_receive_handler (const Handler &handler)
 	{
-		const auto it = m_server_map.find (ep);
-		if (it == m_server_map.end ()
+		m_server_receive_handler = handler;	
+	}
+
+	void server_add (const endpoint &ep)
+	{
+		if (m_server_receive_handler)
 		{
-			auto srv (yail::make_unique<server> (m_io_service, ep, handler));
-			m_server_map[ep] = std::move (srv);
+			// TODO
+		}
+
+		const auto it = m_server_map.find (ep.path ());
+		if (it == m_server_map.end ())
+		{
+			auto srv (yail::make_unique<server> (m_io_service, ep, m_server_receive_handler));
+			m_server_map[ep.path ()] = std::move (srv);
 		}
 		else
 		{
-			it->second->incr_ref_count ():
+			it->second->incr_ref_count ();
 		}
 	}
 
-	void remove_server (const endpoint &ep)
+	void server_remove (const endpoint &ep)
 	{
-		const auto it = m_server_map.find (ep);
+		const auto it = m_server_map.find (ep.path ());
 		if (it != m_server_map.end ())
 		{
 			it->second->decr_ref_count ();
@@ -156,7 +170,8 @@ public:
 private:
 	yail::io_service &m_io_service;
 	client m_client;
-	using server_map std::unordered_map<endpoint, std::unique_ptr<server>>;
+	server::receive_handler m_server_receive_handler;
+	using server_map = std::unordered_map<std::string, std::unique_ptr<server>>;
 	server_map m_server_map;
 };
 
@@ -194,7 +209,7 @@ void unix_domain_impl::client::async_send_n_receive (const endpoint &ep,
 	auto op = std::make_shared<operation<Handler>> (m_io_service, res_buffer, handler);
 
 	// connect to service
-	op->m_socket.async_connect (ep
+	op->m_socket.async_connect (ep,
 		[&req_buffer, op ] (const boost::system::error_code &ec)
 		{
 			if (!ec)
@@ -209,13 +224,13 @@ void unix_domain_impl::client::async_send_n_receive (const endpoint &ep,
 				op->m_bufs.push_back(boost::asio::buffer(op->m_size_buffer));
 				op->m_bufs.push_back(boost::asio::buffer(req_buffer.data (), req_buffer.size ()));
 				boost::asio::async_write (op->m_socket, op->m_bufs,
-					[op] (const boost::system::error_code &ec)
+					[op] (const boost::system::error_code &ec, std::size_t bytes_transferred)
 					{
 						if (!ec)
 						{
 							// read response size
 							boost::asio::async_read (op->m_socket, boost::asio::buffer(op->m_size_buffer),
-								[op] (const boost::system::error_code &ec)
+								[op] (const boost::system::error_code &ec, std::size_t bytes_transferred)
 								{
 									if (!ec)
 									{
@@ -228,7 +243,7 @@ void unix_domain_impl::client::async_send_n_receive (const endpoint &ep,
 										// read response
 										op->m_res_buffer.resize (response_size);
 										boost::asio::async_read (op->m_socket, boost::asio::buffer(op->m_res_buffer.data (), op->m_res_buffer.size ()),
-											[op] (const boost::system::error_code &ec)
+											[op] (const boost::system::error_code &ec,  std::size_t bytes_transferred)
 											{
 												op->m_handler (ec);
 											});

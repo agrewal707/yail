@@ -12,7 +12,7 @@ rpc<Request, Response>::rpc (const std::string& name) :
 {}
 
 template <typename Request, typename Response>
-rpc<Request, Reponse>::~rpc ()
+rpc<Request, Response>::~rpc ()
 {}
 
 } // namespace rpc

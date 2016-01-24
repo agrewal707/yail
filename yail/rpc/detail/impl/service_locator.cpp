@@ -1,4 +1,4 @@
-#include <yail/detail/service_impl.h>
+#include <yail/rpc/detail/service_locator.h>
 
 namespace yail {
 namespace rpc {
