@@ -11,7 +11,7 @@
 #include <yail/buffer.h>
 #include <yail/memory.h>
 #include <yail/pubsub/error.h>
-#include <yail/pubsub/detail/messages/yail.pb.h>
+#include <yail/pubsub/detail/messages/pubsub.pb.h>
 
 //
 // subscriber

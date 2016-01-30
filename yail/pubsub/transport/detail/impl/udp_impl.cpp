@@ -17,12 +17,12 @@ udp_impl::sender::sender (
 	m_socket (io_service, local_ep),
 	m_multicast_ep (multicast_ep)
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 udp_impl::sender::~sender ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 //
@@ -33,7 +33,7 @@ udp_impl::receiver::receiver (
 	m_io_service (io_service),
 	m_socket (io_service)
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 
 	// listen on local address and multicast port
 	endpoint listen_ep (local_ep.address (), multicast_ep.port ());
@@ -47,7 +47,7 @@ udp_impl::receiver::receiver (
 
 udp_impl::receiver::~receiver ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 //
@@ -58,12 +58,12 @@ udp_impl::udp_impl (
 	m_sender (io_service, local_ep, ctrl_multicast_ep),
 	m_receiver (io_service, local_ep, ctrl_multicast_ep)
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 udp_impl::~udp_impl ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 } // namespace detail

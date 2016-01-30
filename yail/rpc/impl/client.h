@@ -10,13 +10,13 @@ template <typename Transport>
 client<Transport>::client (service<Transport> &service) :
 	m_impl (make_unique<impl_type> (service.get_impl ()))
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 template <typename Transport>
 client<Transport>::~client ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 template <typename Transport> 

@@ -152,7 +152,7 @@ void subscriber_common::process_pubsub_data (const messages::pubsub_data &data)
 
 void subscriber_common::complete_ops_with_error (const boost::system::error_code &ec)
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 
 	for (auto &val : m_topic_map)
 	{

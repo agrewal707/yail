@@ -63,7 +63,7 @@ service_impl<Transport>::service_impl (yail::io_service &io_service, const std::
 	m_publisher (io_service, m_transport, domain),
 	m_subscriber (io_service, m_transport, domain)
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 template <typename Transport>
@@ -74,13 +74,13 @@ service_impl<Transport>::service_impl (yail::io_service &io_service, Transport &
 	m_publisher (io_service, m_transport, domain),
 	m_subscriber (io_service, m_transport, domain)
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 template <typename Transport>
 service_impl<Transport>::~service_impl ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 
 	if (m_destroy_transport)
 		delete &m_transport;

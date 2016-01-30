@@ -43,7 +43,7 @@ shmem_impl::channel_map::channel_map () :
 	m_receiver_ctx_allocator (m_segment.get_segment_manager()),
 	m_shm_ctx (nullptr)
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 
 	try
 	{
@@ -64,12 +64,12 @@ shmem_impl::channel_map::channel_map () :
 
 shmem_impl::channel_map::~channel_map ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 void shmem_impl::channel_map::add_receiver (const std::string &uuid)
 {
-	YAIL_LOG_TRACE (uuid);
+	YAIL_LOG_FUNCTION (uuid);
 
 	shm_receiver_ctx ctx (m_char_allocator);
 	ctx.m_uuid = shm_string (uuid.begin (), uuid.end (), m_char_allocator);
@@ -97,7 +97,7 @@ void shmem_impl::channel_map::add_receiver (const std::string &uuid)
 
 void shmem_impl::channel_map::remove_receiver (const std::string &uuid)
 {
-	YAIL_LOG_TRACE (uuid);
+	YAIL_LOG_FUNCTION (uuid);
 
 	scoped_lock<interprocess_mutex> lock(m_shm_ctx->m_mutex);
 	for (auto it = m_shm_ctx->m_receivers.begin (); it != m_shm_ctx->m_receivers.end ();)
@@ -118,7 +118,7 @@ void shmem_impl::channel_map::remove_receiver (const std::string &uuid)
 
 shmem_impl::channel_map::receiver_uuids shmem_impl::channel_map::get_receivers () const
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 
 	receiver_uuids uuids;
 	
@@ -138,12 +138,12 @@ shmem_impl::sender::send_operation::send_operation (const yail::buffer &buffer, 
 	m_buffer (buffer),
 	m_handler (handler)
 {	
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 shmem_impl::sender::send_operation::~send_operation ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 //
@@ -158,12 +158,12 @@ shmem_impl::sender::sender (yail::io_service &io_service, const shmem_impl::chan
 	m_thread (&shmem_impl::sender::do_work, this),
 	m_stop_work (false)
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 shmem_impl::sender::~sender ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 
 	try
 	{
@@ -175,7 +175,7 @@ shmem_impl::sender::~sender ()
 
 void shmem_impl::sender::do_work ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 
 	bool stop = false;
 	while (!stop)
@@ -205,7 +205,7 @@ void shmem_impl::sender::do_work ()
 				auto receivers = m_channel_map.get_receivers ();
 				for (auto &uuid : receivers)
 				{
-					YAIL_LOG_TRACE ("sending to = " << uuid);
+					YAIL_LOG_FUNCTION ("sending to = " << uuid);
 
 					// send data to receiver's mq
 					boost::interprocess::message_queue mq (open_only, uuid.c_str ());
@@ -235,7 +235,7 @@ void shmem_impl::sender::do_work ()
 
 void shmem_impl::sender::complete_ops_with_error (const boost::system::error_code &ec)
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 
 	while (!m_op_queue.empty ())
 	{
@@ -254,12 +254,12 @@ shmem_impl::receiver::receive_operation::receive_operation (yail::buffer &buffer
 	m_buffer (buffer),
 	m_handler (handler)
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 shmem_impl::receiver::receive_operation::~receive_operation ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 //
@@ -274,14 +274,14 @@ shmem_impl::receiver::receiver (yail::io_service &io_service, shmem_impl::channe
 	m_thread (&shmem_impl::receiver::do_work, this),
 	m_stop_work (false)
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 
 	m_channel_map.add_receiver (boost::uuids::to_string (m_uuid));
 }
 
 shmem_impl::receiver::~receiver ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 
 	try 
 	{
@@ -301,7 +301,7 @@ shmem_impl::receiver::~receiver ()
 
 void shmem_impl::receiver::do_work ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 
 	bool stop = false;
 	while (!stop)
@@ -357,7 +357,7 @@ void shmem_impl::receiver::do_work ()
 
 void shmem_impl::receiver::complete_ops_with_error (const boost::system::error_code &ec)
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 
 	while (!m_op_queue.empty ())
 	{
@@ -378,12 +378,12 @@ shmem_impl::shmem_impl (yail::io_service &io_service) :
 	m_sender (io_service, m_channel_map),
 	m_receiver (io_service, m_channel_map)
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 shmem_impl::~shmem_impl ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 } // namespace detail

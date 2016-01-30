@@ -12,20 +12,20 @@ template <typename Transport>
 service<Transport>::service (yail::io_service &io_service) :
 	m_impl (yail::make_unique<impl_type> (io_service))
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 template <typename Transport>
 service<Transport>::service (yail::io_service &io_service, Transport &transport) :
 	m_impl (make_unique<impl_type> (io_service, transport))
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 template <typename Transport>
 service<Transport>::~service ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 template <typename Transport>

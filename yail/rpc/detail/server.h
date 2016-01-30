@@ -187,13 +187,17 @@ server<Transport>::server (service_locator<Transport> &service_locator, Transpor
 	m_service_locator (service_locator),
 	m_transport (transport)
 {
+	YAIL_LOG_FUNCTION (this);
+
 	m_transport.server_set_receive_handler (std::bind (
 		&server::handle_transport_server_receive, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 template <typename Transport>
 server<Transport>::~server ()
-{}
+{
+	YAIL_LOG_FUNCTION (this);
+}
 
 } // namespace detail
 } // namespace rpc

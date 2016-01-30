@@ -14,8 +14,18 @@ public:
 
   std::string message(int value) const
   {
-		// TODO
-    return "asio.rpc error";
+		if (value == error::success)
+			return "succes";
+		if (value == error::system_error)
+			return "system error";
+		if (value == error::invalid_response)
+			return "invalid response from the provider";
+		if (value == error::failure_response)
+			return "provider responded with reply_error ()";
+		if (value == error::deserialization_failed)
+			return "fail to deserialize rpc request/response";
+
+   return "asio.rpc error";
   }
 };
 

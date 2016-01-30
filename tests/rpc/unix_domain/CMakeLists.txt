@@ -33,23 +33,23 @@ link_directories(
 )
 
 # build
-set (PUB_SOURCES
- pub.cpp
+set (RPC_SOURCES
+ rpc.cpp
 )
 
-set (SUB_SOURCES
- sub.cpp
+set (TEST_SOURCES
+ test.cpp
 )
 
-set (PUB_EXE hello_pub)
-set (SUB_EXE hello_sub)
+set (RPC_EXE rpc_unix_domain)
+set (TEST_EXE test_rpc_unix_domain)
 
-add_executable (${PUB_EXE} ${PUB_SOURCES})
-target_link_libraries (${PUB_EXE} hello_messages ${PROJECT_NAME} ${boost_asio_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LIBRARY} -lpthread)
+add_executable (${RPC_EXE} ${RPC_SOURCES})
+target_link_libraries (${RPC_EXE} rpc_unix_domain_messages ${PROJECT_NAME} ${boost_asio_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LIBRARY} -lpthread)
 
-add_executable (${SUB_EXE} ${SUB_SOURCES})
-target_link_libraries (${SUB_EXE} hello_messages ${PROJECT_NAME} ${boost_asio_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LIBRARY} -lpthread)
+add_executable (${TEST_EXE} ${TEST_SOURCES})
+target_link_libraries (${TEST_EXE} ${Boost_LIBRARIES})
 
 # install
-install (TARGETS ${PUB_EXE} DESTINATION bin)
-install (TARGETS ${SUB_EXE} DESTINATION bin)
+install (TARGETS ${RPC_EXE} DESTINATION bin)
+install (TARGETS ${TEST_EXE} DESTINATION bin)

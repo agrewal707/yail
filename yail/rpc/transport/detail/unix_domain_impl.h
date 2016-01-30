@@ -6,6 +6,7 @@
 #include <functional>
 #include <unordered_map>
 #include <yail/memory.h>
+#include <yail/exception.h>
 
 //
 // yail::detail::unix_domain_impl
@@ -14,6 +15,8 @@ namespace yail {
 namespace rpc {
 namespace transport {
 namespace detail {
+
+YAIL_DECLARE_EXCEPTION(server_receive_handler_not_set);
 
 using boost::asio::local::stream_protocol;
 
@@ -66,7 +69,7 @@ public:
 		class session : public std::enable_shared_from_this<session>
 		{
 		public:
-			session (yail::io_service &io_service, const receive_handler &receive_handler);
+			session (yail::io_service &io_service, server *s, const receive_handler &receive_handler);
 			~session ();
 
 			stream_protocol::socket& socket() { return m_socket; }
@@ -75,15 +78,19 @@ public:
 			void write (const yail::buffer &buf, boost::system::error_code &ec);
 
 		private:
-			void handle_read (const boost::system::error_code &ec, size_t bytes_read, std::shared_ptr<yail::buffer> pbuf);
-
+			friend class unix_domain_impl;
 			yail::io_service &m_io_service;
+			server *m_server;
 			stream_protocol::socket m_socket;
 			const receive_handler &m_receive_handler;
+			char m_size_buffer[4];
 		};
 
 		server (yail::io_service &io_service, const endpoint &ep, const receive_handler &receive_handler);
 		~server ();
+
+		void add_session (std::shared_ptr<session> ses);
+		void remove_session (session *ses);
 
 		uint32_t get_ref_count () { return m_ref_count; }
 		void incr_ref_count () { ++m_ref_count; }
@@ -95,7 +102,9 @@ public:
 		yail::io_service &m_io_service;
   	stream_protocol::acceptor m_acceptor;
 		const receive_handler m_receive_handler;
-		uint32_t m_ref_count;
+		uint32_t m_ref_count; 
+		using session_map = std::unordered_map<session*, std::shared_ptr<session>>;
+		session_map m_session_map;
 	};
 
 	//
@@ -131,9 +140,12 @@ public:
 
 	void server_add (const endpoint &ep)
 	{
-		if (m_server_receive_handler)
+		YAIL_LOG_FUNCTION (ep.path ());
+
+		if (!m_server_receive_handler)
 		{
-			// TODO
+			YAIL_THROW_EXCEPTION (
+				server_receive_handler_not_set, "server receive handler not set", 0);
 		}
 
 		const auto it = m_server_map.find (ep.path ());
@@ -150,6 +162,8 @@ public:
 
 	void server_remove (const endpoint &ep)
 	{
+		YAIL_LOG_FUNCTION (ep.path ());
+
 		const auto it = m_server_map.find (ep.path ());
 		if (it != m_server_map.end ())
 		{
@@ -163,8 +177,9 @@ public:
 
 	void server_send (void *trctx, const yail::buffer &res_buffer, boost::system::error_code &ec)
 	{
-		server::session *psession = static_cast<server::session*> (trctx);
-		psession->write (res_buffer, ec);
+		server::session *session = static_cast<server::session*> (trctx);
+		session->write (res_buffer, ec);
+		session->m_server->remove_session (session);
 	}
 	
 private:

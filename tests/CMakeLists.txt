@@ -8,3 +8,7 @@ if(YAIL_PUBSUB_ENABLE_SHMEM_TRANSPORT)
 	add_subdirectory (pubsub/shmem)
 endif(YAIL_PUBSUB_ENABLE_SHMEM_TRANSPORT)
 
+if(YAIL_RPC_ENABLE_UNIX_DOMAIN_TRANSPORT)
+	add_subdirectory (rpc/unix_domain)
+endif(YAIL_RPC_ENABLE_UNIX_DOMAIN_TRANSPORT)
+

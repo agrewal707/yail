@@ -1,7 +1,7 @@
 #include <yail/rpc/detail/server.h>
 
 #include <yail/log.h>
-#include <yail/rpc/detail/messages/yail.pb.h>
+#include <yail/rpc/detail/messages/rpc.pb.h>
 
 namespace yail {
 namespace rpc {
@@ -17,10 +17,14 @@ trans_context_impl::trans_context_impl (void *trctx, rpc_context *rctx, const in
 	m_trctx (trctx),
 	m_rctx (rctx),
 	m_req_id (req_id)
-{}
+{
+	YAIL_LOG_FUNCTION (this << m_trctx << m_rctx << m_req_id);
+}
 
 trans_context_impl::~trans_context_impl ()
-{}
+{
+	YAIL_LOG_FUNCTION (this << m_trctx << m_rctx << m_req_id);
+}
 
 //
 // rpc_context
@@ -32,24 +36,34 @@ rpc_context::rpc_context (const std::string &service_name, const std::string &rp
 	m_rpc_type_name (rpc_type_name),
 	m_rpc_handler (handler),
 	m_trans_context_map ()
-{}
+{
+	YAIL_LOG_FUNCTION (this << m_service_name << m_rpc_name << m_rpc_type_name);
+}
 
 rpc_context::~rpc_context ()
-{}
+{
+	YAIL_LOG_FUNCTION (this << m_service_name << m_rpc_name << m_rpc_type_name);
+}
 
 //
 // server_common
 //
 server_common::server_common () :
 	m_rpc_map ()
-{}
+{
+	YAIL_LOG_FUNCTION (this);
+}
 
 server_common::~server_common ()
-{}
+{
+	YAIL_LOG_FUNCTION (this);
+}
 
 bool server_common::validate_rpc_response (yail::rpc::trans_context &tctx,
 	const std::string &service_name, const std::string &rpc_name, const std::string &rpc_type_name)
 {
+	YAIL_LOG_FUNCTION (this << service_name << rpc_name << rpc_type_name);
+
 	return (tctx.m_rctx->m_service_name == service_name) && 
 	       (tctx.m_rctx->m_rpc_name == rpc_name) && 
 				 (tctx.m_rctx->m_rpc_type_name == rpc_type_name);
@@ -59,6 +73,8 @@ bool server_common::construct_rpc_response (yail::rpc::trans_context &tctx,
 	const std::string &service_name, const std::string &rpc_name, const std::string &rpc_type_name, 
 	const bool res_status, const std::string &res_data, yail::buffer &res_buffer)
 {
+	YAIL_LOG_FUNCTION (this << service_name << rpc_name << rpc_type_name << res_status);
+
 	bool retval = false;
 
 	try
@@ -78,7 +94,7 @@ bool server_common::construct_rpc_response (yail::rpc::trans_context &tctx,
 		msg.set_data (res_data);
 
 		res_buffer.resize (msg.ByteSize ());
-		YAIL_LOG_TRACE ("message size = " << res_buffer.size ());
+		YAIL_LOG_TRACE ("message req_id: " << tctx.m_req_id << ", size: " << res_buffer.size ());
 		msg.SerializeToArray (res_buffer.data (), res_buffer.size ());
 
 		msg.release_common ();

@@ -64,12 +64,16 @@ client_impl<Transport>::call_operation<Request, Response, Handler>::call_operati
 	m_service_rpc (service_rpc),
 	m_res (res),
 	m_handler (handler)
-{}
+{
+	YAIL_LOG_FUNCTION (this);
+}
 
 template <typename Transport>
 template <typename Request, typename Response, typename Handler>
 client_impl<Transport>::call_operation<Request, Response, Handler>::~call_operation ()
-{}
+{
+	YAIL_LOG_FUNCTION (this);
+}
 
 //
 // client_impl
@@ -77,11 +81,15 @@ client_impl<Transport>::call_operation<Request, Response, Handler>::~call_operat
 template <typename Transport>
 client_impl<Transport>::client_impl (service_impl<Transport> &service) :
 	m_service (service)
-{}
+{
+	YAIL_LOG_FUNCTION (this);
+}
 
 template <typename Transport>
 client_impl<Transport>::~client_impl ()
-{}
+{
+	YAIL_LOG_FUNCTION (this);
+}
 
 template <typename Transport>
 template <typename Request, typename Response>
@@ -122,10 +130,18 @@ void client_impl<Transport>::async_call (const std::string &service_name, const 
 			{
 				if (!ec)
 				{
-					if (!op->m_service_rpc.deserialize (op->m_res, op->m_res_data))
+					if (op->m_service_rpc.deserialize (op->m_res, op->m_res_data))
 					{
-						op->m_handler (ec);
+						op->m_handler (yail::rpc::error::success);
 					}
+					else
+					{
+						op->m_handler (yail::rpc::error::deserialization_failed);
+					}
+				}
+				else
+				{
+					op->m_handler (ec);
 				}
 			});
 	}

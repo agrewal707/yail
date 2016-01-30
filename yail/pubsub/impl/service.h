@@ -12,20 +12,20 @@ template <typename Transport>
 service<Transport>::service (yail::io_service &io_service, const std::string &domain) :
 	m_impl (yail::make_unique<impl_type> (io_service, domain))
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 template <typename Transport>
 service<Transport>::service (yail::io_service &io_service, Transport &transport, const std::string &domain) :
 	m_impl (make_unique<impl_type> (io_service, transport, domain))
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 template <typename Transport>
 service<Transport>::~service ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 } // namespace pubsub

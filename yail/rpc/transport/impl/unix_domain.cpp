@@ -13,12 +13,12 @@ namespace transport {
 unix_domain::unix_domain (yail::io_service &io_service) :
 	m_impl (make_unique<detail::unix_domain_impl> (io_service))
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 unix_domain::~unix_domain()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 void unix_domain::client_send_n_receive (const endpoint &ep,

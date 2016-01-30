@@ -65,12 +65,16 @@ template <typename Request, typename Response, typename Handler>
 provider_impl<Transport>::context<Request, Response, Handler>::context (const rpc_impl<Request, Response> &service_rpc, const Handler &handler) :
 	m_service_rpc (service_rpc),
 	m_handler (handler)
-{}
+{
+	YAIL_LOG_FUNCTION (this << m_service_rpc.get_name () << m_service_rpc.get_type_name ());
+}
 
 template <typename Transport>
 template <typename Request, typename Response, typename Handler>
 provider_impl<Transport>::context<Request, Response, Handler>::~context ()
-{}
+{
+	YAIL_LOG_FUNCTION (this);
+}
 
 //
 // provider_impl
@@ -80,12 +84,16 @@ provider_impl<Transport>::provider_impl (service_impl<Transport> &service, const
 	m_service (service),
 	m_service_name (service_name)
 {
+	YAIL_LOG_FUNCTION (this << m_service_name);
+
 	m_service.get_server ().add_provider (m_service_name);
 }
 
 template <typename Transport>
 provider_impl<Transport>::~provider_impl ()
 {
+	YAIL_LOG_FUNCTION (this << m_service_name);
+
 	m_service.get_server ().remove_provider (m_service_name);
 }
 

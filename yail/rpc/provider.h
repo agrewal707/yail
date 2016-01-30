@@ -107,7 +107,7 @@ public:
 	 * @param[in] errmsg The error message to be sent to the rpc client.
 	 */
 	template <typename Request, typename Response>
-	void reply_error (yail::rpc::trans_context &tctx, const rpc<Request, Response> &service_rpc, const std::string &errmsg);
+	void reply_error (yail::rpc::trans_context &tctx, const rpc<Request, Response> &service_rpc, const std::string &errmsg = "");
 
 	/**
 	 * @brief Indicate to the provider that the reply will be delayed.

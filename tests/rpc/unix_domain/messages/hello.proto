@@ -1,0 +1,18 @@
+package messages;
+option optimize_for = CODE_SIZE;
+
+message hello_request
+{
+	required string msg = 1;
+	required uint32 seq = 2;
+	required bytes data = 3;
+	optional uint32 crc = 4;
+}
+
+message hello_response
+{
+	required string msg = 1;
+	required uint32 seq = 2;
+	required bytes data = 3;
+	optional uint32 crc = 4;
+}

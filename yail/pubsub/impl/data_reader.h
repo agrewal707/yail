@@ -10,13 +10,13 @@ template <typename T, typename Transport>
 data_reader<T, Transport>::data_reader (service<Transport> &service, topic<T> &topic) :
 	m_impl (make_unique <impl_type> (service.get_impl (), topic.get_impl ()))
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 template <typename T, typename Transport>
 data_reader<T, Transport>::~data_reader ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 template <typename T, typename Transport> 

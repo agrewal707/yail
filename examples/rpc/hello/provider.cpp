@@ -1,4 +1,5 @@
 #include <iostream>
+#include <boost/asio/steady_timer.hpp>
 
 #include <yail/rpc/service.h>
 #include <yail/rpc/provider.h>
@@ -20,28 +21,30 @@ int main(int argc, char* argv[])
 		yail::rpc::rpc<messages::hello_request, messages::hello_response> hello_rpc ("hello");
 		yail::rpc::rpc<messages::bye_request, messages::bye_response> bye_rpc ("bye");
 
+		boost::asio::steady_timer timer (io_service);
+
 		rpc_provider.add_rpc (hello_rpc,
 			[&] (yail::rpc::trans_context &tctx, const messages::hello_request &req)
 			{
 				// fill response 'res'
 				messages::hello_response res;
 				res.set_msg ("hey there");
-				rpc_provider.reply_ok (tctx, hello_rpc, res);
-
-#if 0
-				// delayed reply
-				rpc_provider.reply_delayed (tctx, hello_rpc);
-				async_xyz (xyz,
-					[ & ] (const boost::system::error_code &ec)
-					{
-						// fill response 'res'
-						// messages::hello_response res;
-						rpc_provider.reply_ok (tctx, hello_rpc, res);
-					}
-#endif
+				//rpc_provider.reply_ok (tctx, hello_rpc, res);
 
 				// reply with error
 				//rpc_provider.reply_error (tctx, hello_rpc);
+				
+				// delayed reply
+				rpc_provider.reply_delayed (tctx, hello_rpc);
+				timer.expires_from_now (std::chrono::seconds (5));
+				timer.async_wait (
+					[&] (const boost::system::error_code &ec)
+					{
+						// fill response 'res'
+						messages::hello_response res;
+						res.set_msg ("hey there..sorry for the delay !");
+						rpc_provider.reply_ok (tctx, hello_rpc, res);
+					});
 			});
 
 		rpc_provider.add_rpc (bye_rpc,

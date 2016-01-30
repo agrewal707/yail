@@ -12,9 +12,8 @@ enum errors
 {
 	success,
 	system_error,
-	unknown_rpc,
-	failure_response,
 	invalid_response,
+	failure_response,
 	serialization_failed,
 	deserialization_failed
 };

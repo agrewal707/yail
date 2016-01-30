@@ -10,13 +10,13 @@ template <typename Transport>
 provider<Transport>::provider (service<Transport> &service, const std::string &service_name) :
 	m_impl (make_unique <impl_type> (service.get_impl (), service_name))
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this << service_name);
 }
 
 template <typename Transport>
 provider<Transport>::~provider ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 template <typename Transport> 
@@ -44,7 +44,7 @@ template <typename Transport>
 template <typename Request, typename Response>
 void provider<Transport>::reply_delayed (yail::rpc::trans_context &tctx, const rpc<Request, Response> &service_rpc)
 {
-	m_impl->reply_error (tctx, service_rpc.get_impl ());
+	m_impl->reply_delayed (tctx, service_rpc.get_impl ());
 }
 
 } // namespace rpc

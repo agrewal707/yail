@@ -14,7 +14,7 @@ struct traits<unix_domain>
 	std::pair<bool, unix_domain::endpoint> 
 	static service_name_to_ep (const std::string &service_name)
 	{
-		return std::make_pair (true, unix_domain::endpoint ("/var/run"+service_name));
+		return std::make_pair (true, unix_domain::endpoint ("/var/run/"+service_name));
 	}
 };
 

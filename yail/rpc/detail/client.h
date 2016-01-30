@@ -141,17 +141,22 @@ namespace detail {
 template <typename Handler>
 client_common::call_operation<Handler>::call_operation (const std::string &service_name, 
 		const std::string &rpc_name, const std::string &rpc_type_name, std::string &res_data, const Handler &handler):
+	m_service_name (service_name),
 	m_rpc_name (rpc_name),
 	m_rpc_type_name (rpc_type_name),
 	m_res_data (res_data),
 	m_handler (handler),
 	m_req_id (0),
 	m_req_buffer ()
-{}
+{
+	YAIL_LOG_FUNCTION (this << m_service_name << m_rpc_name << m_rpc_type_name << m_req_id);
+}
 
 template <typename Handler>
 client_common::call_operation<Handler>::~call_operation ()
-{}
+{
+	YAIL_LOG_FUNCTION (this << m_service_name << m_rpc_name << m_rpc_type_name << m_req_id);
+}
 
 //
 // client
@@ -160,11 +165,15 @@ template <typename Transport>
 client<Transport>::client (service_locator<Transport> &service_locator, Transport &transport) :
 	m_service_locator (service_locator),
 	m_transport (transport)
-{}
+{
+	YAIL_LOG_FUNCTION (this);
+}
 
 template <typename Transport>
 client<Transport>::~client ()
-{}
+{
+	YAIL_LOG_FUNCTION (this);
+}
 
 } // namespace detail
 } // namespace rpc

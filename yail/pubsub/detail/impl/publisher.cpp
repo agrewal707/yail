@@ -122,7 +122,7 @@ bool publisher_common::construct_pubsub_message (const std::string &topic_name,
 		msg.set_allocated_data (data.get ());
 
 		buffer.resize (msg.ByteSize ());
-		YAIL_LOG_TRACE ("message size = " << buffer.size ());
+		YAIL_LOG_FUNCTION ("message size = " << buffer.size ());
 		msg.SerializeToArray (buffer.data (), buffer.size ());
 
 		msg.release_header ();

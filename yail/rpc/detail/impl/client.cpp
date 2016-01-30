@@ -2,7 +2,7 @@
 
 #include <yail/log.h>
 #include <yail/memory.h>
-#include <yail/rpc/detail/messages/yail.pb.h>
+#include <yail/rpc/detail/messages/rpc.pb.h>
 
 namespace yail {
 namespace rpc {
@@ -13,15 +13,21 @@ namespace detail {
 //
 client_common::client_common () :
 	m_id (0)
-{}
+{
+	YAIL_LOG_FUNCTION (this);
+}
 
 client_common::~client_common ()
-{}
+{
+	YAIL_LOG_FUNCTION (this);
+}
 
 bool client_common::construct_rpc_request (const std::string &service_name,
 	const std::string &rpc_name, const std::string &rpc_type_name, const std::string &req_data, 
 	uint32_t &req_id, yail::buffer &req_buffer)
 {
+	YAIL_LOG_FUNCTION (this << service_name << rpc_name << rpc_type_name);
+
 	bool retval = false;
 
 	try
@@ -42,7 +48,7 @@ bool client_common::construct_rpc_request (const std::string &service_name,
 		msg.set_data (req_data);
 
 		req_buffer.resize (msg.ByteSize ());
-		YAIL_LOG_TRACE ("message size = " << req_buffer.size ());
+		YAIL_LOG_TRACE ("message req_id: " << req_id << ", size: " << req_buffer.size ());
 		msg.SerializeToArray (req_buffer.data (), req_buffer.size ());
 
 		msg.release_common ();
@@ -61,6 +67,8 @@ bool client_common::process_rpc_response (const std::string &service_name,
 	const std::string &rpc_name, const std::string &rpc_type_name, const uint32_t req_id, const yail::buffer &res_buffer, 
 	bool &res_status, std::string &res_data)
 {
+	YAIL_LOG_FUNCTION (this << service_name << rpc_name << rpc_type_name << req_id);
+
 	bool retval = false;
 	messages::rpc_response msg;
 	if (msg.ParseFromArray (res_buffer.data (), res_buffer.size ()))

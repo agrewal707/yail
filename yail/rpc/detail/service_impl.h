@@ -72,7 +72,7 @@ service_impl<Transport>::service_impl (yail::io_service &io_service) :
 	m_client (m_service_locator, m_transport),
 	m_server (m_service_locator, m_transport)
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 template <typename Transport>
@@ -83,13 +83,13 @@ service_impl<Transport>::service_impl (yail::io_service &io_service, Transport &
 	m_client (m_service_locator, m_transport),
 	m_server (m_service_locator, m_transport)
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 }
 
 template <typename Transport>
 service_impl<Transport>::~service_impl ()
 {
-	YAIL_LOG_TRACE (this);
+	YAIL_LOG_FUNCTION (this);
 
 	if (m_destroy_transport)
 		delete &m_transport;
