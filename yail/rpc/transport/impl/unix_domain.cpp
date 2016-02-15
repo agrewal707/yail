@@ -22,9 +22,9 @@ unix_domain::~unix_domain()
 }
 
 void unix_domain::client_send_n_receive (const endpoint &ep,
-	const yail::buffer &req_buffer, yail::buffer &res_buffer, boost::system::error_code &ec)
+	const yail::buffer &req_buffer, yail::buffer &res_buffer, boost::system::error_code &ec, const uint32_t timeout)
 {
-	m_impl->client_send_n_receive (ep, req_buffer, res_buffer, ec);
+	m_impl->client_send_n_receive (ep, req_buffer, res_buffer, ec, timeout);
 }
 
 void unix_domain::server_add (const endpoint &ep)

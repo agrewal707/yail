@@ -60,7 +60,7 @@ public:
 
 	/// Call rpc synchronously
 	void call (const std::string &service_name, const std::string &rpc_name, const std::string &rpc_type_name, 
-	           const std::string &req_data, std::string &res_data, boost::system::error_code &ec)
+	           const std::string &req_data, std::string &res_data, boost::system::error_code &ec, const uint32_t timeout)
 	{
 		uint32_t req_id; yail::buffer req_buffer;
 		if (construct_rpc_request (service_name, rpc_name, rpc_type_name, 
@@ -68,7 +68,7 @@ public:
 		{
 			yail::buffer res_buffer;
 			const auto ep = m_service_locator.get_service_location (service_name);
-			m_transport.client_send_n_receive (ep, req_buffer, res_buffer, ec);
+			m_transport.client_send_n_receive (ep, req_buffer, res_buffer, ec, timeout);
 			if (!ec)
 			{
 				bool res_status;

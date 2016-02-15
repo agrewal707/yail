@@ -75,7 +75,7 @@ public:
 	 * @param[out] ec The error code returned on completion of the operation.
 	 */
 	void client_send_n_receive (const endpoint &ep,
-		const yail::buffer &req_buffer, yail::buffer &res_buffer, boost::system::error_code &ec);
+		const yail::buffer &req_buffer, yail::buffer &res_buffer, boost::system::error_code &ec, const uint32_t timeout);
 
 	/**
 	 * @brief Send and receive message buffer asynchronously from client to server.

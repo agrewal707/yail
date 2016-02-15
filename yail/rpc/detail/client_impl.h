@@ -21,7 +21,7 @@ public:
 
 	template <typename Request, typename Response>
 	void call (const std::string &service_name, const rpc_impl<Request, Response> &service_rpc, 
-	           const Request &req, Response &res, boost::system::error_code &ec);
+	           const Request &req, Response &res, boost::system::error_code &ec, const uint32_t timeout);
 
 	template <typename Request, typename Response, typename Handler>
 	void async_call (const std::string &service_name, const rpc_impl<Request, Response> &service_rpc, 
@@ -94,13 +94,13 @@ client_impl<Transport>::~client_impl ()
 template <typename Transport>
 template <typename Request, typename Response>
 void client_impl<Transport>::call (const std::string &service_name, const rpc_impl<Request, Response> &service_rpc, 
-                                   const Request &req, Response &res, boost::system::error_code &ec)
+                                   const Request &req, Response &res, boost::system::error_code &ec, const uint32_t timeout)
 {
 	std::string req_data;
 	if (service_rpc.serialize (req, &req_data))
 	{
 		std::string res_data;
-		m_service.get_client ().call (service_name, service_rpc.get_name (), service_rpc.get_type_name (), req_data, res_data, ec);
+		m_service.get_client ().call (service_name, service_rpc.get_name (), service_rpc.get_type_name (), req_data, res_data, ec, timeout);
 		if (!ec)
 		{
 			if (!service_rpc.deserialize (res, res_data))

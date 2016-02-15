@@ -35,7 +35,7 @@ public:
 		~client ();
 
 		void send_n_receive (const endpoint &ep,
-			const yail::buffer &req_buffer, yail::buffer &res_buffer, boost::system::error_code &ec);
+			const yail::buffer &req_buffer, yail::buffer &res_buffer, boost::system::error_code &ec, const uint32_t timeout);
 
 		template <typename Handler>
 		void async_send_n_receive (const endpoint &ep,
@@ -117,9 +117,9 @@ public:
 	// Client API
 	//
 	void client_send_n_receive (const endpoint &ep,
-		const yail::buffer &req_buffer, yail::buffer &res_buffer, boost::system::error_code &ec)
+		const yail::buffer &req_buffer, yail::buffer &res_buffer, boost::system::error_code &ec, const uint32_t timeout)
 	{
-		m_client.send_n_receive (ep, req_buffer, res_buffer, ec);
+		m_client.send_n_receive (ep, req_buffer, res_buffer, ec, timeout);
 	}
 
 	template <typename Handler>

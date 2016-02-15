@@ -1,6 +1,8 @@
 #include <yail/rpc/transport/unix_domain.h>
 #include <yail/rpc/transport/detail/unix_domain_impl.h>
 
+#include <boost/optional.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <yail/log.h>
 
 namespace yail {
@@ -27,11 +29,12 @@ unix_domain_impl::client::~client ()
 }
 
 void unix_domain_impl::client::send_n_receive (const endpoint &ep,
-	const yail::buffer &req_buffer, yail::buffer &res_buffer, boost::system::error_code &ec)
+	const yail::buffer &req_buffer, yail::buffer &res_buffer, boost::system::error_code &ec, const uint32_t timeout)
 {
 	YAIL_LOG_FUNCTION (this << ep.path ());
 
-	stream_protocol::socket socket (m_io_service);
+	boost::asio::io_service io_service;
+	stream_protocol::socket socket (io_service);
 	socket.connect (ep, ec);
 	if (ec) 
 	{
@@ -56,12 +59,48 @@ void unix_domain_impl::client::send_n_receive (const endpoint &ep,
 		YAIL_LOG_ERROR ("request write: " << ec);
 		return;
 	}
-
-	// read response size
-	boost::asio::read (socket, boost::asio::buffer(size_buffer), ec);
-	if (ec) 
+	
+	if (timeout)
 	{
-		YAIL_LOG_ERROR ("response size read: " << ec);
+		// start read timeout timer
+		boost::optional<boost::system::error_code> timer_ec;
+		boost::asio::steady_timer timer (io_service);
+		timer.expires_from_now (std::chrono::seconds (timeout));
+		timer.async_wait (
+			[&timer_ec] (const boost::system::error_code &ec) 
+			{ 
+				timer_ec.reset (ec); 
+			});
+		
+		// read response size
+		boost::optional<boost::system::error_code> read_ec;
+		boost::asio::async_read(socket, boost::asio::buffer(size_buffer), 
+			[&read_ec] (const boost::system::error_code& ec, size_t)
+			{ 
+				read_ec.reset (ec); 
+			});
+
+		io_service.reset();
+		while (io_service.run_one())
+		{ 
+			if (read_ec)
+					timer.cancel ();
+			else if (timer_ec)
+					socket.cancel ();
+		}
+		ec = *read_ec;
+	}
+	else
+	{
+		boost::asio::read (socket, boost::asio::buffer(size_buffer), ec);
+	}
+
+	if (ec)
+	{
+		if (ec != boost::asio::error::operation_aborted)
+		{	
+			YAIL_LOG_ERROR ("response size read: " << ec);
+		}
 		return;
 	}
 

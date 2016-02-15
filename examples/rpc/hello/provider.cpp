@@ -26,14 +26,19 @@ int main(int argc, char* argv[])
 		rpc_provider.add_rpc (hello_rpc,
 			[&] (yail::rpc::trans_context &tctx, const messages::hello_request &req)
 			{
+#if 1
 				// fill response 'res'
 				messages::hello_response res;
 				res.set_msg ("hey there");
-				//rpc_provider.reply_ok (tctx, hello_rpc, res);
+				rpc_provider.reply_ok (tctx, hello_rpc, res);
+#endif				
 
+#if 0
 				// reply with error
-				//rpc_provider.reply_error (tctx, hello_rpc);
-				
+				rpc_provider.reply_error (tctx, hello_rpc);
+#endif
+
+#if 0			
 				// delayed reply
 				rpc_provider.reply_delayed (tctx, hello_rpc);
 				timer.expires_from_now (std::chrono::seconds (5));
@@ -45,6 +50,7 @@ int main(int argc, char* argv[])
 						res.set_msg ("hey there..sorry for the delay !");
 						rpc_provider.reply_ok (tctx, hello_rpc, res);
 					});
+#endif				
 			});
 
 		rpc_provider.add_rpc (bye_rpc,

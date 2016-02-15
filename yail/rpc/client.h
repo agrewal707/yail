@@ -88,7 +88,7 @@ public:
 	 */
 	template <typename Request, typename Response>
 	void call (const std::string& service_name, const rpc<Request, Response> &service_rpc, 
-	           const Request &req, Response &res, boost::system::error_code &ec);
+	           const Request &req, Response &res, boost::system::error_code &ec, const uint32_t timeout = 0);
 
 	/**
 	 * @brief Call RPC asynchronously.

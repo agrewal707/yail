@@ -130,67 +130,77 @@ do_test (
 rpc_unix_domain_sync_call_reply_ok
 test_rpc_unix_domain
 "--num-clients 5 --num-calls 5 --call-type 0 --reply-type 0"
-"rpc_unix_domain1, provider0, call:25, reply-ok:25, reply-delayed:0, reply-error:0, valid:25
+"rpc_unix_domain1, provider0, call:25, reply-ok:25, reply-delayed:0, reply-error:0, reply-none:0, valid:25
 
-rpc_unix_domain2, client0, call:5, reply-ok:5, reply-error:0, valid:5
-rpc_unix_domain2, client1, call:5, reply-ok:5, reply-error:0, valid:5
-rpc_unix_domain2, client2, call:5, reply-ok:5, reply-error:0, valid:5
-rpc_unix_domain2, client3, call:5, reply-ok:5, reply-error:0, valid:5
-rpc_unix_domain2, client4, call:5, reply-ok:5, reply-error:0, valid:5"
+rpc_unix_domain2, client0, call:5, reply-ok:5, reply-error:0, reply-timeout:0, valid:5
+rpc_unix_domain2, client1, call:5, reply-ok:5, reply-error:0, reply-timeout:0, valid:5
+rpc_unix_domain2, client2, call:5, reply-ok:5, reply-error:0, reply-timeout:0, valid:5
+rpc_unix_domain2, client3, call:5, reply-ok:5, reply-error:0, reply-timeout:0, valid:5
+rpc_unix_domain2, client4, call:5, reply-ok:5, reply-error:0, reply-timeout:0, valid:5"
 )
 do_test (
 rpc_unix_domain_async_call_reply_ok
 test_rpc_unix_domain
 "--num-clients 5 --num-calls 5 --call-type 1 --reply-type 0"
-"rpc_unix_domain1, provider0, call:25, reply-ok:25, reply-delayed:0, reply-error:0, valid:25
+"rpc_unix_domain1, provider0, call:25, reply-ok:25, reply-delayed:0, reply-error:0, reply-none:0, valid:25
 
-rpc_unix_domain2, client0, call:5, reply-ok:5, reply-error:0, valid:5
-rpc_unix_domain2, client1, call:5, reply-ok:5, reply-error:0, valid:5
-rpc_unix_domain2, client2, call:5, reply-ok:5, reply-error:0, valid:5
-rpc_unix_domain2, client3, call:5, reply-ok:5, reply-error:0, valid:5
-rpc_unix_domain2, client4, call:5, reply-ok:5, reply-error:0, valid:5"
+rpc_unix_domain2, client0, call:5, reply-ok:5, reply-error:0, reply-timeout:0, valid:5
+rpc_unix_domain2, client1, call:5, reply-ok:5, reply-error:0, reply-timeout:0, valid:5
+rpc_unix_domain2, client2, call:5, reply-ok:5, reply-error:0, reply-timeout:0, valid:5
+rpc_unix_domain2, client3, call:5, reply-ok:5, reply-error:0, reply-timeout:0, valid:5
+rpc_unix_domain2, client4, call:5, reply-ok:5, reply-error:0, reply-timeout:0, valid:5"
 )
 do_test (
 rpc_unix_domain_sync_call_reply_delayed
 test_rpc_unix_domain
 "--num-clients 2 --num-calls 2 --call-type 0 --reply-type 1"
-"rpc_unix_domain1, provider0, call:4, reply-ok:4, reply-delayed:4, reply-error:0, valid:4
+"rpc_unix_domain1, provider0, call:4, reply-ok:4, reply-delayed:4, reply-error:0, reply-none:0, valid:4
 
-rpc_unix_domain2, client0, call:2, reply-ok:2, reply-error:0, valid:2
-rpc_unix_domain2, client1, call:2, reply-ok:2, reply-error:0, valid:2"
+rpc_unix_domain2, client0, call:2, reply-ok:2, reply-error:0, reply-timeout:0, valid:2
+rpc_unix_domain2, client1, call:2, reply-ok:2, reply-error:0, reply-timeout:0, valid:2"
 )
 do_test (
 rpc_unix_domain_async_call_reply_delayed
 test_rpc_unix_domain
 "--num-clients 2 --num-calls 2 --call-type 1 --reply-type 1"
-"rpc_unix_domain1, provider0, call:4, reply-ok:4, reply-delayed:4, reply-error:0, valid:4
+"rpc_unix_domain1, provider0, call:4, reply-ok:4, reply-delayed:4, reply-error:0, reply-none:0, valid:4
 
-rpc_unix_domain2, client0, call:2, reply-ok:2, reply-error:0, valid:2
-rpc_unix_domain2, client1, call:2, reply-ok:2, reply-error:0, valid:2"
+rpc_unix_domain2, client0, call:2, reply-ok:2, reply-error:0, reply-timeout:0, valid:2
+rpc_unix_domain2, client1, call:2, reply-ok:2, reply-error:0, reply-timeout:0, valid:2"
 )
 do_test (
 rpc_unix_domain_sync_call_reply_error
 test_rpc_unix_domain
 "--num-clients 5 --num-calls 5 --call-type 0 --reply-type 2"
-"rpc_unix_domain1, provider0, call:25, reply-ok:0, reply-delayed:0, reply-error:25, valid:25
+"rpc_unix_domain1, provider0, call:25, reply-ok:0, reply-delayed:0, reply-error:25, reply-none:0, valid:25
 
-rpc_unix_domain2, client0, call:5, reply-ok:0, reply-error:5, valid:0
-rpc_unix_domain2, client1, call:5, reply-ok:0, reply-error:5, valid:0
-rpc_unix_domain2, client2, call:5, reply-ok:0, reply-error:5, valid:0
-rpc_unix_domain2, client3, call:5, reply-ok:0, reply-error:5, valid:0
-rpc_unix_domain2, client4, call:5, reply-ok:0, reply-error:5, valid:0"
+rpc_unix_domain2, client0, call:5, reply-ok:0, reply-error:5, reply-timeout:0, valid:0
+rpc_unix_domain2, client1, call:5, reply-ok:0, reply-error:5, reply-timeout:0, valid:0
+rpc_unix_domain2, client2, call:5, reply-ok:0, reply-error:5, reply-timeout:0, valid:0
+rpc_unix_domain2, client3, call:5, reply-ok:0, reply-error:5, reply-timeout:0, valid:0
+rpc_unix_domain2, client4, call:5, reply-ok:0, reply-error:5, reply-timeout:0, valid:0"
 )
 do_test (
 rpc_unix_domain_async_call_reply_error
 test_rpc_unix_domain
 "--num-clients 5 --num-calls 5 --call-type 1 --reply-type 2"
-"rpc_unix_domain1, provider0, call:25, reply-ok:0, reply-delayed:0, reply-error:25, valid:25
+"rpc_unix_domain1, provider0, call:25, reply-ok:0, reply-delayed:0, reply-error:25, reply-none:0, valid:25
 
-rpc_unix_domain2, client0, call:5, reply-ok:0, reply-error:5, valid:0
-rpc_unix_domain2, client1, call:5, reply-ok:0, reply-error:5, valid:0
-rpc_unix_domain2, client2, call:5, reply-ok:0, reply-error:5, valid:0
-rpc_unix_domain2, client3, call:5, reply-ok:0, reply-error:5, valid:0
-rpc_unix_domain2, client4, call:5, reply-ok:0, reply-error:5, valid:0"
+rpc_unix_domain2, client0, call:5, reply-ok:0, reply-error:5, reply-timeout:0, valid:0
+rpc_unix_domain2, client1, call:5, reply-ok:0, reply-error:5, reply-timeout:0, valid:0
+rpc_unix_domain2, client2, call:5, reply-ok:0, reply-error:5, reply-timeout:0, valid:0
+rpc_unix_domain2, client3, call:5, reply-ok:0, reply-error:5, reply-timeout:0, valid:0
+rpc_unix_domain2, client4, call:5, reply-ok:0, reply-error:5, reply-timeout:0, valid:0"
+)
+do_test (
+rpc_unix_domain_sync_call_reply_timeout
+test_rpc_unix_domain
+"--num-clients 3 --num-calls 1 --call-type 0 --reply-type 3 --timeout 1"
+"rpc_unix_domain1, provider0, call:3, reply-ok:0, reply-delayed:0, reply-error:0, reply-none:3, valid:3
+
+rpc_unix_domain2, client0, call:1, reply-ok:0, reply-error:0, reply-timeout:1, valid:0
+rpc_unix_domain2, client1, call:1, reply-ok:0, reply-error:0, reply-timeout:1, valid:0
+rpc_unix_domain2, client2, call:1, reply-ok:0, reply-error:0, reply-timeout:1, valid:0"
 )
 endif(YAIL_RPC_ENABLE_UNIX_DOMAIN_TRANSPORT)
 

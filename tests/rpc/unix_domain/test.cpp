@@ -35,15 +35,17 @@ struct pargs
 	size_t m_num_clients;
 	size_t m_num_calls;
 	enum call_type { SYNC, ASYNC } m_call_type;
-	enum reply_type { OK, DELAYED, ERROR } m_reply_type;
+	enum reply_type { OK, DELAYED, ERROR, NONE } m_reply_type;
 	size_t m_data_size;
+	uint32_t m_timeout;
 
 	pargs ():
 		m_num_clients (10),
 		m_num_calls (1),
 		m_call_type (SYNC),
 		m_reply_type (OK),
-		m_data_size (1024)
+		m_data_size (1024),
+		m_timeout (0)
 	{}
 
 	~pargs ()
@@ -61,6 +63,7 @@ struct pargs
 			("call-type", po::value<unsigned>(), "type of call the client should make")
 			("reply-type", po::value<unsigned>(), "type of reply sent that should be sent by the provider")
 			("data-size", po::value<size_t>(), "size of data to write in each message")
+			("timeout", po::value<uint32_t>(), "sync call timeout")
 			;
 
 		try 
@@ -89,6 +92,9 @@ struct pargs
 
 			if (vm.count("data-size"))
 				m_data_size = vm["data-size"].as<size_t> ();
+
+			if (vm.count("timeout"))
+				m_timeout = vm["timeout"].as<uint32_t> ();
 	
 			retval = true;
 		} 
@@ -141,6 +147,7 @@ int main (int argc, char* argv[])
 				"--num-calls", std::to_string (pa.m_num_calls).c_str (),
 				"--call-type", std::to_string (pa.m_call_type).c_str (),
 				"--data-size", std::to_string (pa.m_data_size).c_str (),
+				"--timeout", std::to_string (pa.m_timeout).c_str (),
 				"--log-file", "rpc_unix_domain2.log",
 				(char*)NULL);
 

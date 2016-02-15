@@ -33,9 +33,10 @@ struct pargs
 	size_t m_num_clients;
 	size_t m_num_calls;
 	enum call_type { SYNC, ASYNC } m_call_type;
-	enum reply_type { OK, DELAYED, ERROR } m_reply_type;
+	enum reply_type { OK, DELAYED, ERROR, NONE } m_reply_type;
 	size_t m_data_size;
 	std::string m_log_file;
+	uint32_t m_timeout;
 
 	pargs ():
 		m_name (),
@@ -45,7 +46,8 @@ struct pargs
 		m_call_type (SYNC),
 		m_reply_type (OK),
 		m_data_size (1024),
-		m_log_file ()
+		m_log_file (),
+		m_timeout (0)
 	{}
 
 	~pargs ()
@@ -65,6 +67,7 @@ struct pargs
 			("reply-type", po::value<unsigned>(), "type of reply sent that should be sent by the provider")
 			("data-size", po::value<size_t>(), "size of data to write in each message")
 			("log-file", po::value<std::string>(), "log file")
+			("timeout", po::value<uint32_t>(), "timeout for sync call")
 			;
 
 		try
@@ -101,6 +104,9 @@ struct pargs
 
 			if (vm.count("log-file"))
 				m_log_file = vm["log-file"].as<std::string> ();
+
+			if (vm.count("timeout"))
+				m_timeout = vm["timeout"].as<uint32_t> ();
 	
 			retval = true;
 		} 
@@ -135,6 +141,7 @@ public:
 		m_seq (1),
 		m_total_ok (0),
 		m_total_error (0),
+		m_total_timeout (0),
 		m_total_valid (0)
 	{
 		do_call ();
@@ -151,6 +158,7 @@ public:
 			"call:" << m_seq-1 <<
 			", reply-ok:" << m_total_ok <<
 			", reply-error:" << m_total_error <<
+			", reply-timeout:" << m_total_timeout <<
 			", valid:" << m_total_valid);
 	}
 
@@ -181,7 +189,7 @@ private:
 
 			messages::hello_response hello_res;
 			boost::system::error_code ec;
-			m_rpc_client.call("greeting_service", m_hello_rpc, hello_req, hello_res, ec);
+			m_rpc_client.call("greeting_service", m_hello_rpc, hello_req, hello_res, ec, m_pa.m_timeout);
 			if (!ec)
 			{
 				LOG_DEBUG ("msg: " << hello_res.msg ());
@@ -214,7 +222,13 @@ private:
 
 				do_call ();
 			}
-			else if (ec != boost::asio::error::operation_aborted)
+			else if (ec == boost::asio::error::operation_aborted)
+			{
+				m_total_timeout++;
+
+				do_call ();
+			}
+			else
 			{
 				LOG_ERROR ("error: " << ec);
 			}
@@ -286,6 +300,7 @@ private:
 	size_t m_seq;
 	size_t m_total_ok;
 	size_t m_total_error;
+	size_t m_total_timeout;
 	size_t m_total_valid;
 };
 
@@ -307,6 +322,7 @@ public:
 		m_total_reply_ok (0),
 		m_total_reply_delayed (0),
 		m_total_reply_error (0),
+		m_total_reply_none (0),
 		m_total_valid (0)
 	{
 		m_rpc_provider.add_rpc (m_hello_rpc,
@@ -363,7 +379,7 @@ public:
 					m_total_reply_error++;
 					m_rpc_provider.reply_error (tctx, m_hello_rpc);
 				}
-				else
+				else if (m_pa.m_reply_type == pargs::DELAYED)
 				{
 					m_total_reply_delayed++;
 					m_rpc_provider.reply_delayed (tctx, m_hello_rpc);
@@ -374,6 +390,10 @@ public:
 							m_total_reply_ok++;
 							m_rpc_provider.reply_ok (tctx, m_hello_rpc, *hello_res);
 						});
+				}
+				else
+				{
+					m_total_reply_none++;
 				}
 			});
 	}
@@ -390,6 +410,7 @@ public:
 			", reply-ok:" << m_total_reply_ok <<
 			", reply-delayed:" << m_total_reply_delayed <<
 			", reply-error:" << m_total_reply_error <<
+			", reply-none:" << m_total_reply_none <<
 			", valid:" << m_total_valid);
 	}
 
@@ -404,6 +425,7 @@ private:
 	size_t m_total_reply_ok;
 	size_t m_total_reply_delayed;
 	size_t m_total_reply_error;
+	size_t m_total_reply_none;
 	size_t m_total_valid;
 };
 
@@ -430,24 +452,24 @@ int main (int argc, char* argv[])
 		std::vector<std::unique_ptr<provider>> providers;
 		for (size_t i = 0; i < pa.m_num_providers; ++i)
 		{
-			auto r (yail::make_unique<provider> ("provider"+std::to_string(i), io_service, rpc_service, hello_rpc, pa));
-			providers.push_back (std::move (r));
+			auto p (yail::make_unique<provider> ("provider"+std::to_string(i), io_service, rpc_service, hello_rpc, pa));
+			providers.push_back (std::move (p));
 		}
 
 		// create clients
 		std::vector<std::unique_ptr<client>> clients;
 		for (size_t i = 0; i < pa.m_num_clients; ++i)
 		{
-			auto w (yail::make_unique<client> ("client"+std::to_string(i), rpc_service, hello_rpc, pa));
-			clients.push_back (std::move(w));
+			auto c (yail::make_unique<client> ("client"+std::to_string(i), rpc_service, hello_rpc, pa));
+			clients.push_back (std::move(c));
 		}
 
 		boost::asio::signal_set signals (io_service, SIGINT, SIGTERM, SIGALRM);
 		signals.async_wait (
 			[&] (const boost::system::error_code &ec, int signal) 
-				{ 
-					for (const auto &w : clients) w->print_stats ();
-					for (const auto &r : providers) r->print_stats ();
+				{
+					for (const auto &c : clients) c->print_stats ();
+					for (const auto &p : providers) p->print_stats ();
 
 					io_service.stop (); 
 				});

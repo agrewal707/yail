@@ -22,9 +22,9 @@ client<Transport>::~client ()
 template <typename Transport> 
 template <typename Request, typename Response>
 void client<Transport>::call (const std::string& service_name, const rpc<Request, Response> &service_rpc, 
-                              const Request &req, Response &res, boost::system::error_code &ec)
+                              const Request &req, Response &res, boost::system::error_code &ec, const uint32_t timeout)
 {
-	m_impl->call (service_name, service_rpc.get_impl (), req, res, ec);
+	m_impl->call (service_name, service_rpc.get_impl (), req, res, ec, timeout);
 }
 
 template <typename Transport> 
