@@ -28,6 +28,44 @@ unix_domain_impl::client::~client ()
 	YAIL_LOG_FUNCTION (this);
 }
 
+template <typename SyncReadStream, typename MutableBufferSequence>
+std::size_t read_with_timeout (SyncReadStream &s, 
+	const MutableBufferSequence &buffers, boost::system::error_code &ec, const uint32_t timeout)
+{
+	size_t retval;
+
+	// start read timeout timer
+	boost::optional<boost::system::error_code> timer_ec;
+	boost::asio::steady_timer timer (s.get_io_service ());
+	timer.expires_from_now (std::chrono::seconds (timeout));
+	timer.async_wait (
+		[&timer_ec] (const boost::system::error_code &ec) 
+		{ 
+			timer_ec.reset (ec); 
+		});
+	
+	// read response size
+	boost::optional<boost::system::error_code> read_ec;
+	boost::asio::async_read(s, buffers, 
+		[&read_ec, &retval] (const boost::system::error_code& ec, size_t bytes_read)
+		{ 
+			read_ec.reset (ec); 
+			retval = bytes_read;
+		});
+
+	s.get_io_service ().reset();
+	while (s.get_io_service ().run_one())
+	{ 
+		if (read_ec)
+				timer.cancel ();
+		else if (timer_ec)
+				s.cancel ();
+	}
+	ec = *read_ec;
+
+	return retval;
+}
+
 void unix_domain_impl::client::send_n_receive (const endpoint &ep,
 	const yail::buffer &req_buffer, yail::buffer &res_buffer, boost::system::error_code &ec, const uint32_t timeout)
 {
@@ -61,39 +99,9 @@ void unix_domain_impl::client::send_n_receive (const endpoint &ep,
 	}
 	
 	if (timeout)
-	{
-		// start read timeout timer
-		boost::optional<boost::system::error_code> timer_ec;
-		boost::asio::steady_timer timer (io_service);
-		timer.expires_from_now (std::chrono::seconds (timeout));
-		timer.async_wait (
-			[&timer_ec] (const boost::system::error_code &ec) 
-			{ 
-				timer_ec.reset (ec); 
-			});
-		
-		// read response size
-		boost::optional<boost::system::error_code> read_ec;
-		boost::asio::async_read(socket, boost::asio::buffer(size_buffer), 
-			[&read_ec] (const boost::system::error_code& ec, size_t)
-			{ 
-				read_ec.reset (ec); 
-			});
-
-		io_service.reset();
-		while (io_service.run_one())
-		{ 
-			if (read_ec)
-					timer.cancel ();
-			else if (timer_ec)
-					socket.cancel ();
-		}
-		ec = *read_ec;
-	}
+		read_with_timeout (socket, boost::asio::buffer(size_buffer), ec, timeout);
 	else
-	{
 		boost::asio::read (socket, boost::asio::buffer(size_buffer), ec);
-	}
 
 	if (ec)
 	{
@@ -112,10 +120,17 @@ void unix_domain_impl::client::send_n_receive (const endpoint &ep,
 
 	// read response
 	res_buffer.resize (response_size);
-	boost::asio::read (socket, boost::asio::buffer(res_buffer.data (), res_buffer.size ()), ec);
+	if (timeout)
+		read_with_timeout (socket, boost::asio::buffer(res_buffer.data (), res_buffer.size ()), ec, timeout);
+	else
+		boost::asio::read (socket, boost::asio::buffer(res_buffer.data (), res_buffer.size ()), ec);
+
 	if (ec) 
 	{
-		YAIL_LOG_ERROR ("response read: " << ec);
+		if (ec != boost::asio::error::operation_aborted)
+		{	
+			YAIL_LOG_ERROR ("response size read: " << ec);
+		}
 		return;
 	}
 }

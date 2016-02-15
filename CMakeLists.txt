@@ -193,7 +193,17 @@ rpc_unix_domain2, client3, call:5, reply-ok:0, reply-error:5, reply-timeout:0, v
 rpc_unix_domain2, client4, call:5, reply-ok:0, reply-error:5, reply-timeout:0, valid:0"
 )
 do_test (
-rpc_unix_domain_sync_call_reply_timeout
+rpc_unix_domain_sync_call_timeout_reply_ok
+test_rpc_unix_domain
+"--num-clients 3 --num-calls 1 --call-type 0 --reply-type 0 --timeout 1"
+"rpc_unix_domain1, provider0, call:3, reply-ok:3, reply-delayed:0, reply-error:0, reply-none:0, valid:3
+
+rpc_unix_domain2, client0, call:1, reply-ok:1, reply-error:0, reply-timeout:0, valid:1
+rpc_unix_domain2, client1, call:1, reply-ok:1, reply-error:0, reply-timeout:0, valid:1
+rpc_unix_domain2, client2, call:1, reply-ok:1, reply-error:0, reply-timeout:0, valid:1"
+)
+do_test (
+rpc_unix_domain_sync_call_timeout_reply_none
 test_rpc_unix_domain
 "--num-clients 3 --num-calls 1 --call-type 0 --reply-type 3 --timeout 1"
 "rpc_unix_domain1, provider0, call:3, reply-ok:0, reply-delayed:0, reply-error:0, reply-none:3, valid:3
