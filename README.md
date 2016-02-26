@@ -52,29 +52,33 @@ $ sudo LD_LIBRARY_PATH=local/lib make test
 Running tests...
 Test project /home/agrewal/projects/build/yail
       Start  1: pubsub_udp_1
- 1/10 Test  #1: pubsub_udp_1 ...............................   Passed    1.04 sec
+ 1/12 Test  #1: pubsub_udp_1 ...................................   Passed    1.06 sec
       Start  2: pubsub_udp_2
- 2/10 Test  #2: pubsub_udp_2 ...............................   Passed    1.15 sec
+ 2/12 Test  #2: pubsub_udp_2 ...................................   Passed    1.24 sec
       Start  3: pubsub_shmem_1
- 3/10 Test  #3: pubsub_shmem_1 .............................   Passed    1.04 sec
+ 3/12 Test  #3: pubsub_shmem_1 .................................   Passed    1.08 sec
       Start  4: pubsub_shmem_2
- 4/10 Test  #4: pubsub_shmem_2 .............................   Passed    1.15 sec
+ 4/12 Test  #4: pubsub_shmem_2 .................................   Passed    1.23 sec
       Start  5: rpc_unix_domain_sync_call_reply_ok
- 5/10 Test  #5: rpc_unix_domain_sync_call_reply_ok .........   Passed    1.04 sec
+ 5/12 Test  #5: rpc_unix_domain_sync_call_reply_ok .............   Passed    1.10 sec
       Start  6: rpc_unix_domain_async_call_reply_ok
- 6/10 Test  #6: rpc_unix_domain_async_call_reply_ok ........   Passed    1.04 sec
+ 6/12 Test  #6: rpc_unix_domain_async_call_reply_ok ............   Passed    1.08 sec
       Start  7: rpc_unix_domain_sync_call_reply_delayed
- 7/10 Test  #7: rpc_unix_domain_sync_call_reply_delayed ....   Passed    5.04 sec
+ 7/12 Test  #7: rpc_unix_domain_sync_call_reply_delayed ........   Passed    5.07 sec
       Start  8: rpc_unix_domain_async_call_reply_delayed
- 8/10 Test  #8: rpc_unix_domain_async_call_reply_delayed ...   Passed    2.04 sec
+ 8/12 Test  #8: rpc_unix_domain_async_call_reply_delayed .......   Passed    2.07 sec
       Start  9: rpc_unix_domain_sync_call_reply_error
- 9/10 Test  #9: rpc_unix_domain_sync_call_reply_error ......   Passed    1.04 sec
+ 9/12 Test  #9: rpc_unix_domain_sync_call_reply_error ..........   Passed    1.04 sec
       Start 10: rpc_unix_domain_async_call_reply_error
-10/10 Test #10: rpc_unix_domain_async_call_reply_error .....   Passed    1.04 sec
+10/12 Test #10: rpc_unix_domain_async_call_reply_error .........   Passed    1.04 sec
+      Start 11: rpc_unix_domain_sync_call_timeout_reply_ok
+11/12 Test #11: rpc_unix_domain_sync_call_timeout_reply_ok .....   Passed    1.04 sec
+      Start 12: rpc_unix_domain_sync_call_timeout_reply_none
+12/12 Test #12: rpc_unix_domain_sync_call_timeout_reply_none ...   Passed    4.04 sec
 
-100% tests passed, 0 tests failed out of 10
+100% tests passed, 0 tests failed out of 12
 
-Total Test time (real) =  15.64 sec
+Total Test time (real) =  21.10 sec
 ```
 
 Documentation
