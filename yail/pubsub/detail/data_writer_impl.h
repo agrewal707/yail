@@ -18,6 +18,8 @@ class data_writer_impl
 public:
 	data_writer_impl (service_impl<Transport> &service, topic_impl<T> &topic);
 	~data_writer_impl ();
+	
+	void write (const T &t, boost::system::error_code &ec, const uint32_t timeout);
 
 	template <typename Handler>
 	void async_write (const T &t, const Handler &h);
@@ -76,6 +78,20 @@ template <typename T, typename Transport>
 data_writer_impl<T, Transport>::~data_writer_impl ()
 {
 	m_service.get_publisher ().remove_data_writer (this, m_topic_id);
+}
+
+template <typename T, typename Transport>
+void data_writer_impl<T, Transport>::write (const T &t, boost::system::error_code &ec, const uint32_t timeout)
+{
+	std::string topic_data;
+	if (!m_topic.serialize (t, &topic_data))
+	{
+		ec = yail::pubsub::error::serialization_failed;
+	}
+	else
+	{
+		m_service.get_publisher ().send (this, m_topic_id, topic_data, ec, timeout);
+	}
 }
 
 template <typename T, typename Transport>

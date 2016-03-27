@@ -83,8 +83,10 @@ public:
 	 * @param[in] req The request object to be sent to provider for the specified rpc.
 	 *
 	 * @param[out] res The response object to be received from the provider for the specified rpc.
-	 *
+	 * 
 	 * @param[out] ec The error code returned on completion of the rpc operation.
+	 * 
+	 * @param[in] timeout The timeout in seconds. Defaults to indefinite wait.
 	 */
 	template <typename Request, typename Response>
 	void call (const std::string& service_name, const rpc<Request, Response> &service_rpc, 

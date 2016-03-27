@@ -19,6 +19,8 @@ public:
 	data_reader_impl (service_impl<Transport> &service, topic_impl<T> &topic);
 	~data_reader_impl ();
 
+	void read (T &t, boost::system::error_code &ec, const uint32_t timeout);
+
 	template <typename Handler>
 	void async_read (T &t, const Handler &handler);
 
@@ -83,6 +85,20 @@ template <typename T, typename Transport>
 data_reader_impl<T, Transport>::~data_reader_impl ()
 {
 	m_service.get_subscriber ().remove_data_reader (this, m_topic_id);
+}
+
+template <typename T, typename Transport>
+void data_reader_impl<T, Transport>::read (T &t, boost::system::error_code &ec, const uint32_t timeout)
+{
+	std::string topic_data;
+	m_service.get_subscriber ().receive (this, m_topic_id, topic_data, ec, timeout);
+	if (!ec)
+	{
+		if (!m_topic.deserialize (t, topic_data))
+		{
+			ec = yail::pubsub::error::deserialization_failed;
+		}
+	}
 }
 
 template <typename T, typename Transport>

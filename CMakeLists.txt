@@ -64,62 +64,86 @@ endmacro (do_test)
 # yail pubsub tests on udp transport
 if (YAIL_PUBSUB_ENABLE_UDP_TRANSPORT)
 do_test (
-pubsub_udp_1
+pubsub_udp_async_singlethreaded
 test_pubsub_udp
-"--num-readers 1 --num-msgs 1 --data-size 1"
-"pubsub_udp1, writer0, sent:1
-pubsub_udp1, reader0, rcvd:1, dropped:0, valid:1
+"--num-writers 1 --num-readers 5 --num-msgs 100 --data-size 1024"
+"pubsub_udp1, writer0, sent:100
+pubsub_udp1, reader0, rcvd:100, dropped:0, valid:100
+pubsub_udp1, reader1, rcvd:100, dropped:0, valid:100
+pubsub_udp1, reader2, rcvd:100, dropped:0, valid:100
+pubsub_udp1, reader3, rcvd:100, dropped:0, valid:100
+pubsub_udp1, reader4, rcvd:100, dropped:0, valid:100
 
-pubsub_udp2, reader0, rcvd:1, dropped:0, valid:1"
+pubsub_udp2, reader0, rcvd:100, dropped:0, valid:100
+pubsub_udp2, reader1, rcvd:100, dropped:0, valid:100
+pubsub_udp2, reader2, rcvd:100, dropped:0, valid:100
+pubsub_udp2, reader3, rcvd:100, dropped:0, valid:100
+pubsub_udp2, reader4, rcvd:100, dropped:0, valid:100"
 )
 
 do_test (
-pubsub_udp_2
+pubsub_udp_sync_multithreaded
 test_pubsub_udp
-"--num-readers 5 --num-msgs 1000 --data-size 1024"
-"pubsub_udp1, writer0, sent:1000
-pubsub_udp1, reader0, rcvd:1000, dropped:0, valid:1000
-pubsub_udp1, reader1, rcvd:1000, dropped:0, valid:1000
-pubsub_udp1, reader2, rcvd:1000, dropped:0, valid:1000
-pubsub_udp1, reader3, rcvd:1000, dropped:0, valid:1000
-pubsub_udp1, reader4, rcvd:1000, dropped:0, valid:1000
+"--num-writers 1 --num-readers 5 --num-msgs 100 --data-size 1024 --multithreaded"
+"pubsub_udp1, writer0, sent:100
+pubsub_udp1, reader0, rcvd:100, dropped:0, valid:100
+pubsub_udp1, reader1, rcvd:100, dropped:0, valid:100
+pubsub_udp1, reader2, rcvd:100, dropped:0, valid:100
+pubsub_udp1, reader3, rcvd:100, dropped:0, valid:100
+pubsub_udp1, reader4, rcvd:100, dropped:0, valid:100
 
-pubsub_udp2, reader0, rcvd:1000, dropped:0, valid:1000
-pubsub_udp2, reader1, rcvd:1000, dropped:0, valid:1000
-pubsub_udp2, reader2, rcvd:1000, dropped:0, valid:1000
-pubsub_udp2, reader3, rcvd:1000, dropped:0, valid:1000
-pubsub_udp2, reader4, rcvd:1000, dropped:0, valid:1000"
+pubsub_udp2, reader0, rcvd:100, dropped:0, valid:100
+pubsub_udp2, reader1, rcvd:100, dropped:0, valid:100
+pubsub_udp2, reader2, rcvd:100, dropped:0, valid:100
+pubsub_udp2, reader3, rcvd:100, dropped:0, valid:100
+pubsub_udp2, reader4, rcvd:100, dropped:0, valid:100"
 )
 endif(YAIL_PUBSUB_ENABLE_UDP_TRANSPORT)
 
 # yail pubsub tests on shared memory transport
 if (YAIL_PUBSUB_ENABLE_SHMEM_TRANSPORT)
 do_test (
-pubsub_shmem_1
+pubsub_shmem_async_singlethreaded
 test_pubsub_shmem
-"--num-readers 1 --num-msgs 1 --data-size 1"
-"pubsub_shmem1, writer0, sent:1
-pubsub_shmem1, reader0, rcvd:1, dropped:0, valid:1
+"--num-writers 5 --num-readers 5 --num-msgs 1000 --data-size 1024"
+"pubsub_shmem1, writer0, sent:1000
+pubsub_shmem1, writer1, sent:1000
+pubsub_shmem1, writer2, sent:1000
+pubsub_shmem1, writer3, sent:1000
+pubsub_shmem1, writer4, sent:1000
+pubsub_shmem1, reader0, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem1, reader1, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem1, reader2, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem1, reader3, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem1, reader4, rcvd:5000, dropped:0, valid:5000
 
-pubsub_shmem2, reader0, rcvd:1, dropped:0, valid:1"
+pubsub_shmem2, reader0, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem2, reader1, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem2, reader2, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem2, reader3, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem2, reader4, rcvd:5000, dropped:0, valid:5000"
 )
 
 do_test (
-pubsub_shmem_2
+pubsub_shmem_sync_multithreaded
 test_pubsub_shmem
-"--num-readers 5 --num-msgs 1000 --data-size 1024"
+"--num-writers 5 --num-readers 5 --num-msgs 1000 --data-size 1024 --multithreaded"
 "pubsub_shmem1, writer0, sent:1000
-pubsub_shmem1, reader0, rcvd:1000, dropped:0, valid:1000
-pubsub_shmem1, reader1, rcvd:1000, dropped:0, valid:1000
-pubsub_shmem1, reader2, rcvd:1000, dropped:0, valid:1000
-pubsub_shmem1, reader3, rcvd:1000, dropped:0, valid:1000
-pubsub_shmem1, reader4, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem1, writer1, sent:1000
+pubsub_shmem1, writer2, sent:1000
+pubsub_shmem1, writer3, sent:1000
+pubsub_shmem1, writer4, sent:1000
+pubsub_shmem1, reader0, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem1, reader1, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem1, reader2, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem1, reader3, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem1, reader4, rcvd:5000, dropped:0, valid:5000
 
-pubsub_shmem2, reader0, rcvd:1000, dropped:0, valid:1000
-pubsub_shmem2, reader1, rcvd:1000, dropped:0, valid:1000
-pubsub_shmem2, reader2, rcvd:1000, dropped:0, valid:1000
-pubsub_shmem2, reader3, rcvd:1000, dropped:0, valid:1000
-pubsub_shmem2, reader4, rcvd:1000, dropped:0, valid:1000"
+pubsub_shmem2, reader0, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem2, reader1, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem2, reader2, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem2, reader3, rcvd:5000, dropped:0, valid:5000
+pubsub_shmem2, reader4, rcvd:5000, dropped:0, valid:5000"
 )
 endif(YAIL_PUBSUB_ENABLE_SHMEM_TRANSPORT)
 

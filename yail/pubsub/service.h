@@ -65,7 +65,7 @@ public:
 	 *
 	 * @param[in] domain The pubsub domain.
 	 */
-	service (yail::io_service &io_service, const std::string &domain = "");
+	service (yail::io_service &io_service, const std::string &domain = std::string ());
 
 	/**
 	 * @brief Constructs yail pubsub service with specificed transport.
@@ -76,7 +76,7 @@ public:
 	 *
 	 * @param[in] domain The pub/sub domain.
 	 */
-	service (yail::io_service &io_service, Transport &transport, const std::string &domain = "");
+	service (yail::io_service &io_service, Transport &transport, const std::string &domain = std::string ());
 
 	/**
 	 * @brief service object is not copyable.

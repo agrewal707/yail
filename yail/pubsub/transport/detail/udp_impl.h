@@ -21,7 +21,12 @@ public:
 	public:
 		sender (yail::io_service &io_service, const endpoint &local_ep, const endpoint &ctrl_multicast_ep);
 		~sender ();
-
+		
+		void send (const yail::buffer &buffer, boost::system::error_code &ec, const uint32_t timeout)
+		{
+			m_socket.send_to (boost::asio::buffer (buffer.data (), buffer.size ()), m_multicast_ep, 0, ec);
+		}
+			
 		template <typename Handler>
 		void async_send (const yail::buffer &buffer, const Handler &handler)
 		{
@@ -89,6 +94,11 @@ public:
 	udp_impl (yail::io_service &io_service, const endpoint &local_ep, const endpoint &ctrl_multicast_ep);
 	~udp_impl ();
 
+	void send (const yail::buffer &buffer, boost::system::error_code &ec, const uint32_t timeout)
+	{
+		m_sender.send (buffer, ec, timeout);
+	}
+	
 	template <typename Handler>
 	void async_send (const yail::buffer &buffer, const Handler &handler)
 	{

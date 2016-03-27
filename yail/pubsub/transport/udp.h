@@ -79,6 +79,16 @@ public:
 	 *
 	 * @param[in] buffer The buffer to send.
 	 *
+	 * @param[out] ec The error code returned on completion of the write operation.
+	 */
+	void send (const yail::buffer &buffer, boost::system::error_code &ec, const uint32_t timeout);
+	
+	
+	/**
+	 * @brief Send message buffer asynchronously.
+	 *
+	 * @param[in] buffer The buffer to send.
+	 *
 	 * @param[in] handler The handler to be called on completion of send.
 	 */
 	template <typename Handler>

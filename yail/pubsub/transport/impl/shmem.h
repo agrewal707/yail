@@ -7,6 +7,12 @@ namespace yail {
 namespace pubsub {
 namespace transport {
 
+inline void shmem::send (const yail::buffer &buffer, boost::system::error_code &ec, const uint32_t timeout)
+{
+	m_impl->send (buffer, ec, timeout);
+}
+
+
 template <typename Handler>
 inline void shmem::async_send (const yail::buffer &buffer, const Handler &handler)
 {

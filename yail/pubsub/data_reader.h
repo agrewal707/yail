@@ -76,6 +76,18 @@ public:
 	~data_reader ();
 
 	/**
+	 * @brief Reads data synchronously.
+	 *
+	 * @param[out] t The value of data object is read into this parameter.
+	 * 
+	 * @param[out] ec The error code returned on completion of the read operation.
+	 * 
+	 * @param[in] timeout The timeout in seconds. Defaults to indefinite wait.
+	 * 
+	 */	
+	void read (T &t, boost::system::error_code &ec, const uint32_t timeout = 0);
+	
+	/**
 	 * @brief Reads data asynchronously.
 	 *
 	 * @param[out] t The value of data object is read into this parameter.

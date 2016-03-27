@@ -9,13 +9,41 @@ namespace detail {
 //
 // subscriber_common::receive_operation
 //
-subscriber_common::receive_operation::receive_operation (std::string &topic_data, const receive_handler &handler) :
+subscriber_common::receive_operation::receive_operation (std::string &topic_data, type t) :
 	m_topic_data (topic_data),
-	m_handler (handler)
+	m_type (t)
 {}
 
 subscriber_common::receive_operation::~receive_operation ()
 {}
+
+
+//
+// subscriber_common::sync_receive_operation
+//
+subscriber_common::sync_receive_operation::sync_receive_operation (std::string &topic_data, boost::system::error_code &ec) :
+	receive_operation(topic_data, SYNC),
+	m_ec (ec),
+	m_mutex (),
+	m_cond_done (),
+	m_done (false)
+{}
+
+subscriber_common::sync_receive_operation::~sync_receive_operation ()
+{}
+
+
+//
+// subscriber_common::async_receive_operation
+//
+subscriber_common::async_receive_operation::async_receive_operation (std::string &topic_data, const receive_handler &handler) :
+	receive_operation(topic_data, ASYNC),
+	m_handler (handler)	
+{}
+
+subscriber_common::async_receive_operation::~async_receive_operation ()
+{}
+
 
 //
 // subscriber_common::dr_ctx
@@ -125,25 +153,49 @@ void subscriber_common::process_pubsub_data (const messages::pubsub_data &data)
 {
 	std::string topic_id (m_domain + data.topic_name () + data.topic_type_name ());
 
+	std::unique_lock<std::mutex> lock(m_topic_map_mutex);
+
 	// lookup data reader map
 	auto it = m_topic_map.find (topic_id);
 	if (it != m_topic_map.end ())
 	{
 		auto &drmap = it->second;
-
+		
 		for (auto &val : *drmap)
 		{
 			auto &drctx = val.second;
+			
+			std::unique_lock<std::mutex> oq_lock (drctx->m_op_queue_mutex);
 			if (!drctx->m_op_queue.empty ())
 			{
 				auto op = std::move (drctx->m_op_queue.front ());
 				drctx->m_op_queue.pop ();
-
+				oq_lock.unlock ();
+				
 				op->m_topic_data = data.topic_data ();
-				op->m_handler (yail::pubsub::error::success);
+				
+				if (op->is_async ())
+				{
+					auto async_op = static_cast<async_receive_operation*> (op.get ());
+					m_io_service.post (std::bind (async_op->m_handler, yail::pubsub::error::success));
+				}
+				else
+				{
+					auto sync_op = static_cast<sync_receive_operation*> (op.get ());
+					std::lock_guard<std::mutex> l (sync_op->m_mutex);
+					if (!sync_op->m_done)
+					{
+						sync_op->m_ec = yail::pubsub::error::success;
+						sync_op->m_done = true;
+						sync_op->m_cond_done.notify_one ();
+					}
+				}
 			}
 			else
 			{
+				oq_lock.unlock ();
+				
+				std::lock_guard<std::mutex> dq_lock (drctx->m_data_queue_mutex);
 				drctx->m_data_queue.push (data.topic_data ());
 			}
 		}
@@ -154,17 +206,36 @@ void subscriber_common::complete_ops_with_error (const boost::system::error_code
 {
 	YAIL_LOG_FUNCTION (this);
 
+	std::unique_lock<std::mutex> lock(m_topic_map_mutex);
+
 	for (auto &val : m_topic_map)
 	{
 		auto &drmap = val.second;
 		for (auto &val2 : *drmap)
 		{
-			auto &dr = val2.second;
-			while (!dr->m_op_queue.empty ())
+			auto &drctx = val2.second;
+			
+			std::lock_guard<std::mutex> oq_lock (drctx->m_op_queue_mutex);
+			while (!drctx->m_op_queue.empty ())
 			{
-				auto op = std::move (dr->m_op_queue.front ());
-				dr->m_op_queue.pop ();
-				op->m_handler (ec);
+				auto op = std::move (drctx->m_op_queue.front ());
+				drctx->m_op_queue.pop ();
+				
+				if (op->is_async ())
+				{
+					auto async_op = static_cast<async_receive_operation*> (op.get ());
+					m_io_service.post (std::bind (async_op->m_handler, ec));
+				}
+				else
+				{
+					auto sync_op = static_cast<sync_receive_operation*> (op.get ());
+					if (!sync_op->m_done)
+					{
+						sync_op->m_ec = ec;
+						sync_op->m_done = true;
+						sync_op->m_cond_done.notify_one ();
+					}
+				}
 			}
 		}
 	}

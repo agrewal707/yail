@@ -20,6 +20,13 @@ data_writer<T, Transport>::~data_writer ()
 }
 
 template <typename T, typename Transport> 
+inline void data_writer<T, Transport>::write (const T &t, boost::system::error_code &ec, const uint32_t timeout)
+{
+	m_impl->write (t, ec, timeout);
+}
+
+
+template <typename T, typename Transport> 
 template <typename Handler>
 inline void data_writer<T, Transport>::async_write (const T &t, const Handler &handler)
 {

@@ -3,8 +3,9 @@ option optimize_for = CODE_SIZE;
 
 message hello
 {
-	required string msg = 1;
-	required uint32 seq = 2;
-	required bytes data = 3;
-	optional uint32 crc = 4;
+	required string writer = 1;
+	required string msg = 2;
+	required uint32 seq = 3;
+	required bytes data = 4;
+	optional uint32 crc = 5;
 }

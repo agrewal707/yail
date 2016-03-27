@@ -54,7 +54,7 @@ shmem_impl::channel_map::channel_map () :
 		{
 			YAIL_LOG_DEBUG ("receiver: " << receiver.m_uuid << "," << receiver.m_pid);
 		}
-#endif		
+#endif
 	}
 	catch (const std::exception &ex)
 	{
@@ -134,14 +134,47 @@ shmem_impl::channel_map::receiver_uuids shmem_impl::channel_map::get_receivers (
 //
 // shmem_impl::sender::send_operation
 //
-shmem_impl::sender::send_operation::send_operation (const yail::buffer &buffer, const send_handler &handler) :
+shmem_impl::sender::send_operation::send_operation (const yail::buffer &buffer, type t) :
 	m_buffer (buffer),
-	m_handler (handler)
-{	
+	m_type (t)	
+{
 	YAIL_LOG_FUNCTION (this);
 }
 
 shmem_impl::sender::send_operation::~send_operation ()
+{
+	YAIL_LOG_FUNCTION (this);
+}
+
+//
+// shmem_impl::sender::sync_send_operation
+//
+shmem_impl::sender::sync_send_operation::sync_send_operation (const yail::buffer &buffer, boost::system::error_code &ec) :
+	send_operation(buffer, SYNC),
+	m_ec (ec),
+	m_mutex (),
+	m_cond_done (),
+	m_done (false)	
+{
+	YAIL_LOG_FUNCTION (this);
+}
+
+shmem_impl::sender::sync_send_operation::~sync_send_operation ()
+{
+	YAIL_LOG_FUNCTION (this);
+}
+
+//
+// shmem_impl::sender::async_send_operation
+//
+shmem_impl::sender::async_send_operation::async_send_operation (const yail::buffer &buffer, const send_handler &handler) :
+	send_operation(buffer, ASYNC),
+	m_handler (handler)
+{
+	YAIL_LOG_FUNCTION (this);
+}
+
+shmem_impl::sender::async_send_operation::~async_send_operation ()
 {
 	YAIL_LOG_FUNCTION (this);
 }
@@ -202,11 +235,11 @@ void shmem_impl::sender::do_work ()
 		{
 			try
 			{
-				auto receivers = m_channel_map.get_receivers ();
-				for (auto &uuid : receivers)
+				const auto receivers = m_channel_map.get_receivers ();
+				for (const auto &uuid : receivers)
 				{
-					YAIL_LOG_FUNCTION ("sending to = " << uuid);
-
+					YAIL_LOG_TRACE ("sending to: " << uuid);
+				
 					// send data to receiver's mq
 					boost::interprocess::message_queue mq (open_only, uuid.c_str ());
 					ptime abs_time (second_clock::universal_time() + seconds(10));
@@ -215,10 +248,25 @@ void shmem_impl::sender::do_work ()
 						YAIL_LOG_WARNING ("receiver: " << uuid << " queue is full");
 					}
 				}
-
+				
 				// complete operation with success. this is best effort transport
 				// we don't error if unable to send to one or more receivers.
-				m_io_service.post (std::bind (op->m_handler, yail::pubsub::error::success));
+				if (op->is_async ())
+				{
+					auto async_op = static_cast<async_send_operation*> (op.get ());
+					m_io_service.post (std::bind (async_op->m_handler, yail::pubsub::error::success));
+				}
+				else
+				{
+					auto sync_op = static_cast<sync_send_operation*> (op.get ());
+					std::lock_guard<std::mutex> l (sync_op->m_mutex);
+					if (!sync_op->m_done)
+					{
+						sync_op->m_ec = yail::pubsub::error::success;
+						sync_op->m_done = true;
+						sync_op->m_cond_done.notify_one ();
+					}
+				}
 			}
 			catch (const interprocess_exception &ex)
 			{
@@ -237,13 +285,23 @@ void shmem_impl::sender::complete_ops_with_error (const boost::system::error_cod
 {
 	YAIL_LOG_FUNCTION (this);
 
+	std::lock_guard<std::mutex> lock (m_op_mutex);
 	while (!m_op_queue.empty ())
 	{
-		m_io_service.post ([this, ec] () {
-			auto op = std::move (m_op_queue.front ());
-			m_op_queue.pop ();
-			op->m_handler (ec);
-		});
+		auto op = std::move (m_op_queue.front ());
+		m_op_queue.pop ();
+		if (op->is_async ())
+		{
+			auto async_op = static_cast<async_send_operation*> (op.get ());
+			m_io_service.post (std::bind (async_op->m_handler, ec));
+		}
+		else
+		{
+			auto sync_op = static_cast<sync_send_operation*> (op.get ());
+			sync_op->m_ec = ec;
+			sync_op->m_done = true;
+			sync_op->m_cond_done.notify_one ();
+		}
 	}
 }
 
@@ -308,28 +366,31 @@ void shmem_impl::receiver::do_work ()
 	{
 		try
 		{
-			auto pbuf (std::make_shared<yail::buffer> (YAIL_PUBSUB_MAX_MSG_SIZE));
+			yail::buffer buf (YAIL_PUBSUB_MAX_MSG_SIZE);
 			message_queue::size_type recvd_size; unsigned int priority;
-			m_mq.receive(pbuf->data (), pbuf->size (), recvd_size, priority);
+			m_mq.receive(buf.data (), buf.size (), recvd_size, priority);
 			if (recvd_size)
 			{
 				// resize buffer based on data received
-				pbuf->resize (recvd_size);
-				// completion operation if one is pending, otherwise enqueue received message.
-				m_io_service.post ([this, pbuf] () {
-					if (!m_op_queue.empty())
-					{
-						auto op = std::move (m_op_queue.front ());
-						m_op_queue.pop ();
+				buf.resize (recvd_size);
+				
+				std::unique_lock<std::mutex> oq_lock (m_op_queue_mutex);
+				if (!m_op_queue.empty())
+				{
+					auto op = std::move (m_op_queue.front ());
+					m_op_queue.pop ();
+					oq_lock.unlock ();
 
-						op->m_buffer = std::move (*pbuf);
-						op->m_handler (yail::pubsub::error::success);
-					}
-					else
-					{
-						m_buffer_queue.push (std::move(*pbuf));
-					}
-				});
+					op->m_buffer = std::move (buf);
+					m_io_service.post (std::bind (op->m_handler, yail::pubsub::error::success));
+				}
+				else
+				{
+					oq_lock.unlock ();
+					
+					std::lock_guard<std::mutex> bq_lock (m_buffer_queue_mutex);
+					m_buffer_queue.push (std::move(buf));
+				}
 			}
 			else
 			{
@@ -359,13 +420,12 @@ void shmem_impl::receiver::complete_ops_with_error (const boost::system::error_c
 {
 	YAIL_LOG_FUNCTION (this);
 
+	std::lock_guard<std::mutex> oq_lock (m_op_queue_mutex);
 	while (!m_op_queue.empty ())
 	{
-		m_io_service.post ([this, ec] () {
-			auto op = std::move (m_op_queue.front ());
-			m_op_queue.pop ();
-			op->m_handler (ec);
-		});
+		auto op = std::move (m_op_queue.front ());
+		m_op_queue.pop ();
+		m_io_service.post (std::bind (op->m_handler, ec));
 	}
 }
 

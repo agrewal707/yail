@@ -75,6 +75,17 @@ public:
 	~data_writer ();
 
 	/**
+	 * @brief Writes data synchronously.
+	 *
+	 * @param[in] t The value of data object to write.
+	 *
+	 * @param[out] ec The error code returned on completion of the write operation.
+	 * 
+	 * @param[in] timeout The timeout in seconds. Defaults to indefinite wait.
+	 */
+	void write (const T &t, boost::system::error_code &ec, const uint32_t timeout = 0);
+	
+	/**
 	 * @brief Writes data asynchronously.
 	 *
 	 * @param[in] t The value of data object to write.

@@ -100,7 +100,7 @@ public:
 		void handle_accept (std::shared_ptr<session> new_session, const boost::system::error_code &ec);
 
 		yail::io_service &m_io_service;
-  	stream_protocol::acceptor m_acceptor;
+		stream_protocol::acceptor m_acceptor;
 		const receive_handler m_receive_handler;
 		uint32_t m_ref_count; 
 		using session_map = std::unordered_map<session*, std::shared_ptr<session>>;

@@ -32,17 +32,18 @@ std::string get_file_contents(const char *filename)
 
 struct pargs
 {
+	size_t m_num_writers;
 	size_t m_num_readers;
 	size_t m_num_msgs;
 	size_t m_data_size;
-
+	bool m_multithreaded;
+	
 	pargs ():
+		m_num_writers (1),
 		m_num_readers (1),
-		m_num_msgs (10),
-		m_data_size (1024)
-	{}
-
-	~pargs ()
+		m_num_msgs (1),
+		m_data_size (1024),		
+		m_multithreaded (false)
 	{}
 
 	bool parse (int argc, char* argv[])
@@ -52,9 +53,11 @@ struct pargs
 		po::options_description desc("options: ");
 		desc.add_options ()
 			("help", "print help message")
+			("num-writers", po::value<size_t>(), "max num of data writers to instantiate.")
 			("num-readers", po::value<size_t>(), "max num of data readers to instantiate.")
 			("num-msgs", po::value<size_t>(), "max num number of messages to send")
 			("data-size", po::value<size_t>(), "size of data to write in each message")
+			("multithreaded", "Reader/writer has separate thread.")
 			;
 
 		try 
@@ -69,6 +72,9 @@ struct pargs
 				return false;
 			}
 			
+			if (vm.count("num-writers"))
+				m_num_writers = vm["num-writers"].as<size_t> ();
+
 			if (vm.count("num-readers"))
 				m_num_readers = vm["num-readers"].as<size_t> ();
 
@@ -78,6 +84,9 @@ struct pargs
 			if (vm.count("data-size"))
 				m_data_size = vm["data-size"].as<size_t> ();
 	
+			if (vm.count("multithreaded"))
+				m_multithreaded = true;
+				
 			retval = true;
 		} 
 		catch (...) 
@@ -92,23 +101,26 @@ struct pargs
 int main (int argc, char* argv[])
 {
 	pargs pa;
-  if (!pa.parse (argc, argv))
-	{	
+	if (!pa.parse (argc, argv))
+	{
     return 1;
 	}
 
 	pid_t sub = fork ();
 	if (0 == sub)
 	{
-		int rc = execlp(
-				"local/bin/pubsub_udp", 
-				"pubsub_udp2",
-				"--local-port", "40002",
-				"--num-writers", "0", 
-				"--num-readers", std::to_string(pa.m_num_readers).c_str (),
-				"--log-file", "pubsub_udp2.log",
-				(char*)NULL);
-
+		std::vector<const char*> argv = {
+			"pubsub_udp2",
+			"--local-port", "40002",
+			"--num-writers", "0",
+			"--num-readers", std::to_string(pa.m_num_readers).c_str (),
+			"--log-file", "pubsub_udp2.log"
+		};
+		if(pa.m_multithreaded)
+			argv.push_back("--multithreaded");
+		argv.push_back(NULL);
+		
+		int rc = execv("local/bin/pubsub_udp", (char*const*)argv.data());
 		if (rc < 0)
 		{
 			LOG_ERROR("sub err: " << strerror(errno));
@@ -120,17 +132,20 @@ int main (int argc, char* argv[])
 		pid_t pub = fork ();
 		if (0 == pub) 
 		{
-			int rc = execlp(
-				"local/bin/pubsub_udp", 
-				"pubsub_udp1", 
+			std::vector<const char*> argv = {
+				"pubsub_udp1",
 				"--local-port", "40001",
-				"--num-writers", "1", 
-				"--num-readers", std::to_string(pa.m_num_readers).c_str (), 
+				"--num-writers", std::to_string(pa.m_num_writers).c_str (), 
+				"--num-readers", std::to_string(pa.m_num_readers).c_str (),				
 				"--num-msgs", std::to_string(pa.m_num_msgs).c_str (), 
 				"--data-size", std::to_string (pa.m_data_size).c_str (), 
-				"--log-file", "pubsub_udp1.log",
-				(char*)NULL);
-
+				"--log-file", "pubsub_udp1.log"
+			};
+			if(pa.m_multithreaded)
+				argv.push_back("--multithreaded");
+			argv.push_back(NULL);
+			
+			int rc = execv("local/bin/pubsub_udp", (char*const*)argv.data());			
 			if (rc < 0)
 			{
 				LOG_ERROR("pub err: " << strerror(errno));
