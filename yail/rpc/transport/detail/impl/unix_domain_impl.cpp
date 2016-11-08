@@ -250,9 +250,9 @@ unix_domain_impl::server::~server ()
 {
 	YAIL_LOG_FUNCTION (this);
 
-	auto path = m_acceptor.local_endpoint ().path ().c_str ();
+	auto path = m_acceptor.local_endpoint ().path ();
 	m_acceptor.close ();
-	unlink (path);
+	unlink (path.c_str ());
 }
 
 void unix_domain_impl::server::add_session (std::shared_ptr<session> ses)

@@ -2,43 +2,54 @@
 #define YAIL_LOG_H
 
 #include <iostream>
+#include <yail/config.h>
 
-#if !defined(YAIL_LOGGER)
-#define YAIL_LOGGER std::clog
-#endif
-
-#define DO_YAIL_LOG(logger, msg)  				\
-	do {                                    \
-		logger << __FUNCTION__ << "(): "      \
-		       << msg << std::endl;    \
-	} while (false);
-
-#define DO_YAIL_LOG_FUNCTION(logger, msg)  \
-	do {                                     \
-		std::stringstream tmp;                 \
-		yail::parameter_logger p(&tmp);        \
-		p << msg;                              \
-		logger << __FUNCTION__ << "(): "       \
-		       << tmp.str () << std::endl;     \
+#define DO_YAIL_LOG(msg) \
+	do { \
+		if (yail::logger) { \
+			*(yail::logger) << __FUNCTION__ << "(): " << msg << std::endl; \
+		} else { \
+			std::clog << __FUNCTION__ << "(): " << msg << std::endl; \
+		} \
 	} while (false)
 
-#define YAIL_LOG_WARNING(msg) DO_YAIL_LOG(YAIL_LOGGER, msg)
-#define YAIL_LOG_ERROR(msg) DO_YAIL_LOG(YAIL_LOGGER, msg)
+#define DO_YAIL_LOG_FUNCTION(msg) \
+	do { \
+		std::stringstream tmp; \
+		yail::parameter_logger p(&tmp); \
+		p << msg; \
+		if (yail::logger) { \
+			*(yail::logger) << __FUNCTION__ << "(): " << tmp.str () << std::endl; \
+		} else { \
+			std::clog << __FUNCTION__ << "(): " << tmp.str () << std::endl; \
+		} \
+	} while (false)
+
+#define YAIL_LOG_WARNING(msg) DO_YAIL_LOG(msg)
+#define YAIL_LOG_ERROR(msg) DO_YAIL_LOG(msg)
 
 #if defined(YAIL_DEBUG)
-#define YAIL_LOG_DEBUG(msg) DO_YAIL_LOG(YAIL_LOGGER, msg)
+#define YAIL_LOG_DEBUG(msg) DO_YAIL_LOG(msg)
 #else // YAIL_DEBUG
 #define YAIL_LOG_DEBUG(msg)
 #endif
 
 #if defined(YAIL_TRACE)
 #include <sstream>
-#define YAIL_LOG_TRACE(msg) DO_YAIL_LOG(YAIL_LOGGER, msg)
-#define YAIL_LOG_FUNCTION(msg) DO_YAIL_LOG_FUNCTION(YAIL_LOGGER, msg)
+#define YAIL_LOG_TRACE(msg) DO_YAIL_LOG(msg)
+#define YAIL_LOG_FUNCTION(msg) DO_YAIL_LOG_FUNCTION(msg)
 #else // YAIL_TRACE
 #define YAIL_LOG_TRACE(msg)
 #define YAIL_LOG_FUNCTION(msg)
 #endif
+
+namespace yail {
+
+extern YAIL_API std::ostream *logger;
+
+void YAIL_API set_logger (std::ostream *logger);
+
+} // namespace yail
 
 #if defined(YAIL_TRACE)
 namespace yail {
@@ -75,6 +86,5 @@ private:
 
 } // namespace yail
 #endif // YAIL_TRACE
-
 
 #endif // YAIL_LOG_H

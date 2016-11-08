@@ -115,7 +115,7 @@ public:
 				yail::buffer buffer;
 				if (construct_pubsub_message (dwctx->m_topic_name, dwctx->m_topic_type_name, topic_data, buffer))
 				{
-					m_transport.send (buffer, ec, timeout);
+					m_transport.send (topic_id, buffer, ec, timeout);
 				}
 				else
 				{
@@ -155,7 +155,7 @@ public:
 				auto op (yail::make_unique<send_operation> (handler));
 				if (construct_pubsub_message (dwctx->m_topic_name, dwctx->m_topic_type_name, topic_data, op->m_buffer))
 				{
-					m_transport.async_send (op->m_buffer,
+					m_transport.async_send (topic_id, op->m_buffer,
 						[&dwctx] (const boost::system::error_code &ec)
 							{
 								// Transport Send API is assumed to complete send operations 

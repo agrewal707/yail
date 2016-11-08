@@ -69,9 +69,11 @@ subscriber_common::~subscriber_common ()
 	m_topic_map.clear ();
 }
 
-void subscriber_common::add_data_reader (const void *id, const std::string &topic_name,
+bool subscriber_common::add_data_reader (const void *id, const std::string &topic_name,
 	const std::string &topic_type_name, std::string &topic_id)
 {
+	bool retval = false;
+
 	// set topic id for this data reader
 	topic_id = m_domain+topic_name+topic_type_name;
 
@@ -90,6 +92,7 @@ void subscriber_common::add_data_reader (const void *id, const std::string &topi
 				yail::system_error, "failed to add data reader map for " + topic_id, 0);
 		}
 		it = result.first;
+		retval = true;
 	}
 
 	// add data reader ctx to data reader map
@@ -100,10 +103,14 @@ void subscriber_common::add_data_reader (const void *id, const std::string &topi
 		YAIL_THROW_EXCEPTION (
 			yail::system_error, "failed to add data reader for " + topic_id, 0);
 	}
+
+	return retval;
 }
 
-void subscriber_common::remove_data_reader (const void *id, const std::string &topic_id)
+bool subscriber_common::remove_data_reader (const void *id, const std::string &topic_id)
 {
+	bool retval = false;
+
 	// lookup data reader map
 	auto it = m_topic_map.find (topic_id);
 	if (it != m_topic_map.end ())
@@ -120,6 +127,39 @@ void subscriber_common::remove_data_reader (const void *id, const std::string &t
 		if (drmap->empty ())
 		{
 			m_topic_map.erase (it);
+			retval = true;
+		}
+	}
+
+	return retval;
+}
+
+void subscriber_common::cancel (const void *id, const std::string &topic_id)
+{
+	// lookup data reader map
+	auto it = m_topic_map.find (topic_id);
+	if (it != m_topic_map.end ())
+	{
+		auto &drmap = it->second;
+
+		// look up data reader ctx
+		auto it2 = drmap->find (id);
+		if (it2 != drmap->end ())
+		{
+			auto &drctx = it2->second;
+			
+			std::lock_guard<std::mutex> oq_lock (drctx->m_op_queue_mutex);
+			while (!drctx->m_op_queue.empty ())
+			{
+				auto op = drctx->m_op_queue.front ();
+				drctx->m_op_queue.pop ();
+				
+				if (op->is_async ())
+				{
+					auto async_op = static_cast<async_receive_operation*> (op.get ());
+					m_io_service.post (std::bind (async_op->m_handler, boost::asio::error::operation_aborted));
+				}
+			}
 		}
 	}
 }
@@ -168,7 +208,7 @@ void subscriber_common::process_pubsub_data (const messages::pubsub_data &data)
 			std::unique_lock<std::mutex> oq_lock (drctx->m_op_queue_mutex);
 			if (!drctx->m_op_queue.empty ())
 			{
-				auto op = std::move (drctx->m_op_queue.front ());
+				auto op = drctx->m_op_queue.front ();
 				drctx->m_op_queue.pop ();
 				oq_lock.unlock ();
 				

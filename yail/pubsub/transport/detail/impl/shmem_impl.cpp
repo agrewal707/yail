@@ -28,7 +28,7 @@ shmem_impl::channel_map::shm_receiver_ctx::~shm_receiver_ctx ()
 // shmem_impl::channel_map::shm_receiver_ctx
 //
 shmem_impl::channel_map::shm_ctx::shm_ctx (shm_receiver_ctx_allocator &allocator):
-	m_receivers (allocator)
+	m_receiver_map (allocator)
 {}
 
 shmem_impl::channel_map::shm_ctx::~shm_ctx ()
@@ -50,9 +50,9 @@ shmem_impl::channel_map::channel_map () :
 		m_shm_ctx = m_segment.find_or_construct<shm_ctx>(unique_instance)(m_receiver_ctx_allocator);
 #ifndef NDEBUG
 		scoped_lock<interprocess_mutex> lock(m_shm_ctx->m_mutex);
-		for (auto &receiver : m_shm_ctx->m_receivers)
+		for (const auto &val : m_shm_ctx->m_receiver_map)
 		{
-			YAIL_LOG_DEBUG ("receiver: " << receiver.m_uuid << "," << receiver.m_pid);
+			YAIL_LOG_DEBUG ("receiver: " << val.first << "," << val.second.m_uuid << "," << val.second.m_pid);
 		}
 #endif
 	}
@@ -67,26 +67,31 @@ shmem_impl::channel_map::~channel_map ()
 	YAIL_LOG_FUNCTION (this);
 }
 
-void shmem_impl::channel_map::add_receiver (const std::string &uuid)
+void shmem_impl::channel_map::add_receiver (const std::string &topic_id, const std::string &uuid)
 {
 	YAIL_LOG_FUNCTION (uuid);
 
+	// Create receiver ctx
 	shm_receiver_ctx ctx (m_char_allocator);
 	ctx.m_uuid = shm_string (uuid.begin (), uuid.end (), m_char_allocator);
 	ctx.m_pid = getpid ();
 	YAIL_LOG_DEBUG ("add: " << ctx.m_uuid << "," << ctx.m_pid);
 
+	// insert into receiver map
+	KeyType key (topic_id.begin (), topic_id.end (), m_char_allocator);
+	ValueType val (key, ctx);
+
 	scoped_lock<interprocess_mutex> lock(m_shm_ctx->m_mutex);
-	m_shm_ctx->m_receivers.push_back (std::move(ctx));
+	m_shm_ctx->m_receiver_map.insert(val);
 
 	// remove receivers that no longer exist
-	for (auto it = m_shm_ctx->m_receivers.begin (); it != m_shm_ctx->m_receivers.end ();)
+	for (auto it = m_shm_ctx->m_receiver_map.begin (); it != m_shm_ctx->m_receiver_map.end ();)
 	{
-		if (-1 == kill (it->m_pid, 0))
+		if (-1 == kill (it->second.m_pid, 0))
 		{
 			// this process doesnot exist, so remove this receiver
-			YAIL_LOG_DEBUG ("removed: " << it->m_uuid << "," << it->m_pid);
-			it = m_shm_ctx->m_receivers.erase (it);
+			YAIL_LOG_DEBUG ("removed: " << it->second.m_uuid << "," << it->second.m_pid);
+			it = m_shm_ctx->m_receiver_map.erase (it);
 		}
 		else
 		{
@@ -95,19 +100,19 @@ void shmem_impl::channel_map::add_receiver (const std::string &uuid)
 	}
 }
 
-void shmem_impl::channel_map::remove_receiver (const std::string &uuid)
+void shmem_impl::channel_map::remove_receiver (const std::string &topic_id, const std::string &uuid)
 {
 	YAIL_LOG_FUNCTION (uuid);
 
 	scoped_lock<interprocess_mutex> lock(m_shm_ctx->m_mutex);
-	for (auto it = m_shm_ctx->m_receivers.begin (); it != m_shm_ctx->m_receivers.end ();)
+	for (auto it = m_shm_ctx->m_receiver_map.begin (); it != m_shm_ctx->m_receiver_map.end ();)
 	{
-		if (!strcmp (uuid.c_str (), it->m_uuid.c_str ()))
+		if (!((!topic_id.empty () && strcmp (topic_id.c_str (), it->first.c_str ())) || strcmp (uuid.c_str (), it->second.m_uuid.c_str ())))
 		{
-			YAIL_LOG_DEBUG ("removed: " << it->m_uuid << "," << it->m_pid);
-			m_shm_ctx->m_receivers.erase (it);
+			YAIL_LOG_DEBUG ("removed: " << it->second.m_uuid << "," << it->second.m_pid);
+			m_shm_ctx->m_receiver_map.erase (it);
 			break;
-		}
+		 }
 		else
 		{
 			++it;
@@ -116,25 +121,49 @@ void shmem_impl::channel_map::remove_receiver (const std::string &uuid)
 }
 
 
-shmem_impl::channel_map::receiver_uuids shmem_impl::channel_map::get_receivers () const
+shmem_impl::channel_map::receivers shmem_impl::channel_map::get_receivers (const std::string &topic_id) const
 {
 	YAIL_LOG_FUNCTION (this);
 
-	receiver_uuids uuids;
-	
-	scoped_lock<interprocess_mutex> lock(m_shm_ctx->m_mutex);
-	for (auto &receiver : m_shm_ctx->m_receivers)
+	receivers retval;
+
+	KeyType key (topic_id.begin (), topic_id.end (), m_char_allocator);
+	const auto range = m_shm_ctx->m_receiver_map.equal_range (key);
+	if (range.first != m_shm_ctx->m_receiver_map.end ())
 	{
-		uuids.push_back (receiver.m_uuid.c_str ());
+		// return receivers that are hosting this topic_id
+		std::for_each (range.first, range.second,
+			[ &retval ] (const receiver_map::value_type& val)
+			{
+				auto tmp = std::make_pair (val.second.m_uuid.c_str (), val.second.m_pid);
+				retval.push_back (tmp);
+			}
+		);
 	}
 
-	return uuids;
+	return retval;
 }
+
+void shmem_impl::channel_map::lock ()
+{
+	YAIL_LOG_FUNCTION (this);
+
+	m_shm_ctx->m_mutex.lock ();
+}
+
+void shmem_impl::channel_map::unlock ()
+{
+	YAIL_LOG_FUNCTION (this);
+
+	m_shm_ctx->m_mutex.unlock ();
+}
+
 
 //
 // shmem_impl::sender::send_operation
 //
-shmem_impl::sender::send_operation::send_operation (const yail::buffer &buffer, type t) :
+shmem_impl::sender::send_operation::send_operation (const std::string &topic_id, const yail::buffer &buffer, type t) :
+	m_topic_id (topic_id),
 	m_buffer (buffer),
 	m_type (t)	
 {
@@ -149,8 +178,8 @@ shmem_impl::sender::send_operation::~send_operation ()
 //
 // shmem_impl::sender::sync_send_operation
 //
-shmem_impl::sender::sync_send_operation::sync_send_operation (const yail::buffer &buffer, boost::system::error_code &ec) :
-	send_operation(buffer, SYNC),
+shmem_impl::sender::sync_send_operation::sync_send_operation (const std::string &topic_id, const yail::buffer &buffer, boost::system::error_code &ec) :
+	send_operation (topic_id, buffer, SYNC),
 	m_ec (ec),
 	m_mutex (),
 	m_cond_done (),
@@ -167,8 +196,8 @@ shmem_impl::sender::sync_send_operation::~sync_send_operation ()
 //
 // shmem_impl::sender::async_send_operation
 //
-shmem_impl::sender::async_send_operation::async_send_operation (const yail::buffer &buffer, const send_handler &handler) :
-	send_operation(buffer, ASYNC),
+shmem_impl::sender::async_send_operation::async_send_operation (const std::string &topic_id, const yail::buffer &buffer, const send_handler &handler) :
+	send_operation(topic_id, buffer, ASYNC),
 	m_handler (handler)
 {
 	YAIL_LOG_FUNCTION (this);
@@ -182,7 +211,7 @@ shmem_impl::sender::async_send_operation::~async_send_operation ()
 //
 // shmem_impl::sender
 //
-shmem_impl::sender::sender (yail::io_service &io_service, const shmem_impl::channel_map &chmap) :
+shmem_impl::sender::sender (yail::io_service &io_service, shmem_impl::channel_map &chmap) :
 	m_io_service (io_service),
 	m_channel_map (chmap),
 	m_op_mutex (),
@@ -213,7 +242,7 @@ void shmem_impl::sender::do_work ()
 	bool stop = false;
 	while (!stop)
 	{
-		std::unique_ptr<send_operation> op;
+		std::shared_ptr<send_operation> op;
 		{
 			// wait on send operation from client
 			std::unique_lock<std::mutex> lock (m_op_mutex);
@@ -222,7 +251,7 @@ void shmem_impl::sender::do_work ()
 			if (!m_stop_work)
 			{
 				// dequeue an operation
-				op = std::move(m_op_queue.front ());
+				op = m_op_queue.front ();
 				m_op_queue.pop ();
 			}
 			else
@@ -233,22 +262,58 @@ void shmem_impl::sender::do_work ()
 
 		if (!stop)
 		{
+		
 			try
-			{
-				const auto receivers = m_channel_map.get_receivers ();
-				for (const auto &uuid : receivers)
-				{
-					YAIL_LOG_TRACE ("sending to: " << uuid);
-				
-					// send data to receiver's mq
-					boost::interprocess::message_queue mq (open_only, uuid.c_str ());
-					ptime abs_time (second_clock::universal_time() + seconds(10));
-					if (!mq.timed_send(op->m_buffer.data (), op->m_buffer.size (), 0, abs_time))
+			{	
+				std::vector<std::string> dead_receivers;
+
+				{ // lock channel and send message
+					struct channel_lock
 					{
-						YAIL_LOG_WARNING ("receiver: " << uuid << " queue is full");
+						channel_lock (channel_map &cm) : m_cm (cm) {  m_cm.lock (); }
+						~channel_lock () {  m_cm.unlock (); }
+						channel_map &m_cm;
+					} lock (m_channel_map);
+
+					const auto receivers = m_channel_map.get_receivers (op->m_topic_id);
+					for (const auto &rcv: receivers)
+					{
+						const auto &uuid = rcv.first;
+						const auto pid = rcv.second;
+
+						YAIL_LOG_TRACE ("sending to: " << uuid<< "," << pid);
+				
+						try
+						{
+							// send data to receiver's mq
+							boost::interprocess::message_queue mq (open_only, uuid.c_str ());
+							ptime abs_time (second_clock::universal_time() + seconds(1));
+							if (!mq.timed_send(op->m_buffer.data (), op->m_buffer.size (), 0, abs_time))
+							{
+								YAIL_LOG_WARNING ("receiver: " << uuid << "," << pid << " queue is full");
+								if (-1 == kill (pid, 0))
+								{
+									// this process doesnot exist, so remove this receiver
+									YAIL_LOG_WARNING ("removed: " << uuid << "," << pid);
+									dead_receivers.push_back (uuid);
+								}
+							}
+						}
+						catch (const interprocess_exception &ex)
+						{
+							YAIL_LOG_ERROR ("error: " << ex.what ());
+							
+							// Keep going until we loop through all receivers
+						}
 					}
 				}
-				
+
+				// remove all dead receivers from the channel
+				for (const auto &uuid : dead_receivers)
+				{
+					m_channel_map.remove_receiver (std::string (), uuid);
+				}
+			
 				// complete operation with success. this is best effort transport
 				// we don't error if unable to send to one or more receivers.
 				if (op->is_async ())
@@ -268,14 +333,12 @@ void shmem_impl::sender::do_work ()
 					}
 				}
 			}
-			catch (const interprocess_exception &ex)
+			catch (const std::exception &ex)
 			{
-				YAIL_LOG_ERROR ("interprocess error: " << ex.what ());
+				YAIL_LOG_ERROR ("error: " << ex.what ());
 
+				// complete pending operations with error but continue operation
 				complete_ops_with_error (yail::pubsub::error::system_error);
-
-				// we can't recover from this here. cease operation.
-				stop = true;
 			}
 		}
 	}
@@ -288,7 +351,7 @@ void shmem_impl::sender::complete_ops_with_error (const boost::system::error_cod
 	std::lock_guard<std::mutex> lock (m_op_mutex);
 	while (!m_op_queue.empty ())
 	{
-		auto op = std::move (m_op_queue.front ());
+		auto op = m_op_queue.front ();
 		m_op_queue.pop ();
 		if (op->is_async ())
 		{
@@ -333,8 +396,6 @@ shmem_impl::receiver::receiver (yail::io_service &io_service, shmem_impl::channe
 	m_stop_work (false)
 {
 	YAIL_LOG_FUNCTION (this);
-
-	m_channel_map.add_receiver (boost::uuids::to_string (m_uuid));
 }
 
 shmem_impl::receiver::~receiver ()
@@ -350,7 +411,7 @@ shmem_impl::receiver::~receiver ()
 		m_stop_work = true;
 		m_thread.join ();
 
-		m_channel_map.remove_receiver (boost::uuids::to_string (m_uuid));
+		m_channel_map.remove_receiver (std::string (), boost::uuids::to_string (m_uuid));
 
 		message_queue::remove(boost::uuids::to_string (m_uuid).c_str ());
 	} 
@@ -389,7 +450,14 @@ void shmem_impl::receiver::do_work ()
 					oq_lock.unlock ();
 					
 					std::lock_guard<std::mutex> bq_lock (m_buffer_queue_mutex);
-					m_buffer_queue.push (std::move(buf));
+					if (m_buffer_queue.size () <= YAIL_PUBSUB_SHMEM_RECEIVER_BUFFER_QUEUE_DEPTH)
+					{
+						m_buffer_queue.push (std::move(buf));
+					}
+					else
+					{
+						YAIL_LOG_WARNING ("buffer queue is full");
+					}
 				}
 			}
 			else
@@ -397,21 +465,19 @@ void shmem_impl::receiver::do_work ()
 				stop = true;
 			}
 		}
-		catch (const interprocess_exception &ex)
-		{
-			YAIL_LOG_ERROR ("interprocess error: " << ex.what ());
-
-			complete_ops_with_error (yail::pubsub::error::system_error);
-
-			// we can't recover from this here. cease operation.
-			stop = true;
-		}
 		catch (const std::bad_alloc &ex)
 		{
 			YAIL_LOG_ERROR ("receive buffer allocation error: " << ex.what ());
 
 			// assume temporary resource unavailability..just delay resuming operation
 			sleep (1);
+		}
+		catch (const std::exception &ex)
+		{
+			YAIL_LOG_ERROR ("error: " << ex.what ());
+
+			// complete pending operations with error but continue operation
+			complete_ops_with_error (yail::pubsub::error::system_error);
 		}
 	}
 }
@@ -444,6 +510,16 @@ shmem_impl::shmem_impl (yail::io_service &io_service) :
 shmem_impl::~shmem_impl ()
 {
 	YAIL_LOG_FUNCTION (this);
+}
+
+void shmem_impl::add_topic (const std::string &topic_id)
+{
+	m_channel_map.add_receiver (topic_id, boost::uuids::to_string (m_receiver.get_uuid ()));
+}
+
+void shmem_impl::remove_topic (const std::string &topic_id)
+{
+	m_channel_map.remove_receiver (topic_id, boost::uuids::to_string (m_receiver.get_uuid ()));
 }
 
 } // namespace detail

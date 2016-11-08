@@ -7,13 +7,23 @@ namespace yail {
 namespace pubsub {
 namespace transport {
 
-inline void udp::send (const yail::buffer &buffer, boost::system::error_code &ec, const uint32_t timeout)
+inline void udp::add_topic (const std::string &topic_id)
+{
+	// not implemented
+}
+
+inline void udp::remove_topic (const std::string &topic_id)
+{
+	// not implemented
+}
+
+inline void udp::send (const std::string &topic_id, const yail::buffer &buffer, boost::system::error_code &ec, const uint32_t timeout)
 {
 	m_impl->send (buffer, ec, timeout);
 }
 
 template <typename Handler>
-inline void udp::async_send (const yail::buffer &buffer, const Handler &handler)
+inline void udp::async_send (const std::string &topic_id, const yail::buffer &buffer, const Handler &handler)
 {
 	m_impl->async_send (buffer, handler);
 }

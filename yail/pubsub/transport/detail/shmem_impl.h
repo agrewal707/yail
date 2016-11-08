@@ -9,13 +9,16 @@
 #include <condition_variable>
 #include <queue>
 #include <functional>
+#include <utility>
 #include <boost/interprocess/managed_shared_memory.hpp>
 #include <boost/interprocess/containers/string.hpp>
 #include <boost/interprocess/containers/vector.hpp>
+#include <boost/interprocess/containers/map.hpp>
 #include <boost/interprocess/allocators/allocator.hpp>
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <boost/interprocess/sync/scoped_lock.hpp>
 #include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 
 #include <yail/log.h>
@@ -40,6 +43,7 @@ public:
 		// receiver list
 		using shm_char_allocator = allocator<char, managed_shared_memory::segment_manager>; 
 		using shm_string = basic_string<char, std::char_traits<char>, shm_char_allocator>;
+
 		struct shm_receiver_ctx
 		{
 			shm_receiver_ctx (shm_char_allocator &allocator);
@@ -47,10 +51,14 @@ public:
 
 			shm_string m_uuid;
 			pid_t m_pid;
-		};	
-		using shm_receiver_ctx_allocator = allocator<shm_receiver_ctx, managed_shared_memory::segment_manager>;
-		using receivers = vector<shm_receiver_ctx, shm_receiver_ctx_allocator>;
-		using receiver_uuids = vector<std::string>;
+		};
+
+		using KeyType = shm_string;
+		using MappedType = shm_receiver_ctx;
+		using ValueType = std::pair<const shm_string, shm_receiver_ctx>;
+		using shm_receiver_ctx_allocator = allocator<ValueType, managed_shared_memory::segment_manager>;
+		using receiver_map = multimap<KeyType, MappedType, std::less<KeyType>, shm_receiver_ctx_allocator>;
+		using receivers = std::vector<std::pair<std::string, pid_t>>;
 
 		struct shm_ctx
 		{
@@ -58,15 +66,17 @@ public:
 			~shm_ctx ();
 
 			boost::interprocess::interprocess_mutex m_mutex;
-			receivers m_receivers;
+			receiver_map m_receiver_map;
 		};
 
 		channel_map ();
 		~channel_map ();
 
-		void add_receiver (const std::string &uuid);
-		void remove_receiver (const std::string &uuid);
-		receiver_uuids get_receivers () const;
+		void add_receiver (const std::string &topic_id, const std::string &uuid);
+		void remove_receiver (const std::string &topic_id, const std::string &uuid);
+		receivers get_receivers (const std::string &topic_id) const;
+		void lock ();
+		void unlock ();
 
 	private:
 		managed_shared_memory m_segment;
@@ -78,43 +88,42 @@ public:
 	class sender
 	{
 	public:
-		sender (yail::io_service &io_service, const channel_map &channel_map);
+		sender (yail::io_service &io_service, channel_map &channel_map);
 		~sender ();
 
-		void send (const yail::buffer &buffer, boost::system::error_code &ec, const uint32_t timeout)
+		void send (const std::string &topic_id, const yail::buffer &buffer, boost::system::error_code &ec, const uint32_t timeout)
 		{
-			auto op = yail::make_unique<sync_send_operation> (buffer, ec);
-			auto *op_raw = op.get ();
+			auto op = std::make_shared<sync_send_operation> (topic_id, buffer, ec);
 			{
 				std::lock_guard<std::mutex> lock (m_op_mutex);
-				m_op_queue.push (std::move(op));
+				m_op_queue.push (op);
 			}
 			m_op_available.notify_one ();
 			
 			// wait for operation to complete
-			std::unique_lock<std::mutex> lock (op_raw->m_mutex);
+			std::unique_lock<std::mutex> lock (op->m_mutex);
 			if (timeout)
 			{
-				const auto ret = op_raw->m_cond_done.wait_for (lock, std::chrono::seconds(timeout), [&op_raw] () { return op_raw->m_done; });
+				const auto ret = op->m_cond_done.wait_for (lock, std::chrono::seconds(timeout), [op] () { return op->m_done; });
 				if (!ret)
 				{
-					op_raw->m_ec = boost::asio::error::operation_aborted;
-					op_raw->m_done = true;
+					op->m_ec = boost::asio::error::operation_aborted;
+					op->m_done = true;
 				}
 			}
 			else
 			{
-				op_raw->m_cond_done.wait (lock, [&op_raw] () { return op_raw->m_done; });
+				op->m_cond_done.wait (lock, [op] () { return op->m_done; });
 			}
 		}
 		
 		template <typename Handler>
-		void async_send (const yail::buffer &buffer, const Handler &handler)
+		void async_send (const std::string &topic_id, const yail::buffer &buffer, const Handler &handler)
 		{
-			auto op = yail::make_unique<async_send_operation> (buffer, handler);
+			auto op = std::make_shared<async_send_operation> (topic_id, buffer, handler);
 			{
 				std::lock_guard<std::mutex> lock (m_op_mutex);
-				m_op_queue.push (std::move(op));
+				m_op_queue.push (op);
 			}	
 			m_op_available.notify_one ();
 		}
@@ -123,17 +132,18 @@ public:
 		struct send_operation
 		{
 			enum type { SYNC, ASYNC };
-			YAIL_API send_operation (const yail::buffer &buffer, type t);
+			YAIL_API send_operation (const std::string &topic_id, const yail::buffer &buffer, type t);
 			YAIL_API virtual ~send_operation ();
 			
 			bool is_async () const { return m_type == ASYNC; }
-			
+		
+			std::string m_topic_id;
 			const yail::buffer &m_buffer;
 			type m_type;
 		};
 		struct sync_send_operation : public send_operation
 		{
-			YAIL_API sync_send_operation (const yail::buffer &buffer, boost::system::error_code &ec);
+			YAIL_API sync_send_operation (const std::string &topic_id, const yail::buffer &buffer, boost::system::error_code &ec);
 			YAIL_API ~sync_send_operation ();
 
 			boost::system::error_code &m_ec;
@@ -144,7 +154,7 @@ public:
 		using send_handler = std::function<void (const boost::system::error_code &ec)>;
 		struct async_send_operation : public send_operation
 		{
-			YAIL_API async_send_operation (const yail::buffer &buffer, const send_handler &handler);
+			YAIL_API async_send_operation (const std::string &topic_id, const yail::buffer &buffer, const send_handler &handler);
 			YAIL_API ~async_send_operation ();
 
 			send_handler m_handler;	
@@ -154,10 +164,10 @@ public:
 		void complete_ops_with_error (const boost::system::error_code &ec);
 
 		yail::io_service &m_io_service;
-		const channel_map &m_channel_map;
+		channel_map &m_channel_map;
 		std::mutex m_op_mutex;
 		std::condition_variable m_op_available;
-		std::queue<std::unique_ptr<send_operation>> m_op_queue;
+		std::queue<std::shared_ptr<send_operation>> m_op_queue;
 		std::thread m_thread;
 		bool m_stop_work;
 	};
@@ -167,6 +177,11 @@ public:
 	public:
 		receiver (yail::io_service &io_service, channel_map &channel_map);
 		~receiver ();
+
+		boost::uuids::uuid get_uuid () const 
+		{ 
+			return m_uuid;
+		}
 
 		template <typename Handler>
 		void async_receive (yail::buffer &buffer, const Handler &handler)
@@ -220,15 +235,19 @@ public:
 	shmem_impl (yail::io_service &io_service);
 	~shmem_impl ();
 
-	void send (const yail::buffer &buffer, boost::system::error_code &ec, const uint32_t timeout)
+	YAIL_API void add_topic (const std::string &topic_id);
+
+	YAIL_API void remove_topic (const std::string &topic_id);
+
+	void send (const std::string &topic_id, const yail::buffer &buffer, boost::system::error_code &ec, const uint32_t timeout)
 	{
-		m_sender.send (buffer, ec, timeout);
+		m_sender.send (topic_id, buffer, ec, timeout);
 	}
 
 	template <typename Handler>
-	void async_send (const yail::buffer &buffer, const Handler &handler)
+	void async_send (const std::string &topic_id, const yail::buffer &buffer, const Handler &handler)
 	{
-		m_sender.async_send (buffer, handler);
+		m_sender.async_send (topic_id, buffer, handler);
 	}
 
 	template <typename Handler>

@@ -32,6 +32,12 @@ inline void data_reader<T, Transport>::async_read (T &t, const Handler &handler)
 	m_impl->async_read (t, handler);
 }
 
+template <typename T, typename Transport> 
+inline void data_reader<T, Transport>::cancel ()
+{
+	m_impl->cancel ();
+}
+
 } // namespace pubsub
 } // namespace yail
 

@@ -97,6 +97,11 @@ public:
 	template <typename Handler>
 	void async_read (T &t, const Handler &handler);
 
+	/**
+	 * @brief Cancels pending asynchronous operations
+	 */
+	void cancel ();
+
 private:
 	std::unique_ptr<impl_type> m_impl;
 };

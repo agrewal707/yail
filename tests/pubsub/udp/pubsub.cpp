@@ -504,20 +504,20 @@ int main (int argc, char* argv[])
 		yail::pubsub::service<transport> pubsub_service (io_service, tr);
 		yail::pubsub::topic<messages::hello> hello_topic ("greeting");
 
-		// create writers
-		std::vector<std::unique_ptr<writer>> writers;
-		for (size_t i = 0; i < pa.m_num_writers; ++i)
-		{
-			auto w (yail::make_unique<writer> ("writer"+std::to_string(i), pubsub_service, hello_topic, pa));
-			writers.push_back (std::move(w));
-		}
-
 		// creater readers
 		std::vector<std::unique_ptr<reader>> readers;
 		for (size_t i = 0; i < pa.m_num_readers; ++i)
 		{
 			auto r (yail::make_unique<reader> ("reader"+std::to_string(i), pubsub_service, hello_topic, pa));
 			readers.push_back (std::move (r));
+		}
+
+		// create writers
+		std::vector<std::unique_ptr<writer>> writers;
+		for (size_t i = 0; i < pa.m_num_writers; ++i)
+		{
+			auto w (yail::make_unique<writer> ("writer"+std::to_string(i), pubsub_service, hello_topic, pa));
+			writers.push_back (std::move(w));
 		}
 
 		boost::asio::signal_set signals (io_service, SIGINT, SIGTERM, SIGALRM);

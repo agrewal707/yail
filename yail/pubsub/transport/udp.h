@@ -75,14 +75,27 @@ public:
 	~udp ();
 
 	/**
+	 * @brief Add topic to the transport. 
+	 *
+	 * @param[in] topic_id The topic id to add.
+	 */
+	void add_topic (const std::string &topic_id);
+
+	/**
+	 * @brief Remove topic from the transport. 
+	 *
+	 * @param[in] topic_id The topic id to remove.
+	 */
+	void remove_topic (const std::string &topic_id);
+
+	/**
 	 * @brief Send message buffer asynchronously.
 	 *
 	 * @param[in] buffer The buffer to send.
 	 *
 	 * @param[out] ec The error code returned on completion of the write operation.
 	 */
-	void send (const yail::buffer &buffer, boost::system::error_code &ec, const uint32_t timeout);
-	
+	void send (const std::string &topic_id, const yail::buffer &buffer, boost::system::error_code &ec, const uint32_t timeout);
 	
 	/**
 	 * @brief Send message buffer asynchronously.
@@ -92,7 +105,7 @@ public:
 	 * @param[in] handler The handler to be called on completion of send.
 	 */
 	template <typename Handler>
-	void async_send (const yail::buffer &buffer, const Handler &handler);
+	void async_send (const std::string &topic_id, const yail::buffer &buffer, const Handler &handler);
 
 	/**
 	 * @brief Receive message into the specified buffer asynchronously.

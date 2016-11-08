@@ -1,0 +1,13 @@
+package yail.wrappers.pubsub.shell.messages;
+option optimize_for = LITE_RUNTIME;
+
+message Pair
+{
+	required string name = 1;
+	required string value = 2;
+}
+
+message general
+{
+	repeated Pair pair = 1;
+}

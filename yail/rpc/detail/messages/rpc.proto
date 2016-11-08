@@ -13,12 +13,12 @@ message rpc_common
 message rpc_request
 {
 	required rpc_common common = 1;
-  required bytes data = 2;
+	required bytes data = 2;
 }
 
 message rpc_response
 {
 	required rpc_common common = 1;
 	required bool status = 2; // true = success, false = failure
-  optional bytes data = 3;
+	optional bytes data = 3;
 }

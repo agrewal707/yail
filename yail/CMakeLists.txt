@@ -94,11 +94,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 install (TARGETS ${PROJECT_NAME} DESTINATION lib)
 
 # install headers
-set (YAIL_HEADER_DIRS ${PROJECT_SOURCE_DIR}/yail)
+set (YAIL_HEADER_DIRS ${PROJECT_SOURCE_DIR}/yail ${PROJECT_BINARY_DIR}/yail)
 
 install (DIRECTORY ${YAIL_HEADER_DIRS}
 	DESTINATION include FILES_MATCHING PATTERN "*.h"
-)
-install (FILES "${PROJECT_BINARY_DIR}/yail/config.h"
-	DESTINATION include
 )

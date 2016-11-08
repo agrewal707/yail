@@ -35,11 +35,14 @@ struct subscriber_common
 	~subscriber_common ();
 
 	/// Add data reader to the set of data readers that are serviced by this subscriber
-	YAIL_API void add_data_reader (const void *id, const std::string &topic_name, 
+	YAIL_API bool add_data_reader (const void *id, const std::string &topic_name, 
 		const std::string &topic_type_name, std::string &topic_id);
 
 	/// Remove data reader from the set of data readers that are serviced by this subscriber
-	YAIL_API void remove_data_reader (const void *id, const std::string &topic_id);
+	YAIL_API bool remove_data_reader (const void *id, const std::string &topic_id);
+
+	/// Cancel all async operations
+	YAIL_API void cancel (const void *id, const std::string &topic_id);
 
 	/// processs pubsub message received on the transport channel
 	void process_pubsub_message (const yail::buffer &buffer);
@@ -86,7 +89,7 @@ struct subscriber_common
 
 		std::string m_topic_name;
 		std::string m_topic_type_name;
-		std::queue<std::unique_ptr<receive_operation>> m_op_queue;
+		std::queue<std::shared_ptr<receive_operation>> m_op_queue;
 		std::mutex m_op_queue_mutex;
 		std::queue<std::string> m_data_queue;
 		std::mutex m_data_queue_mutex;		
@@ -114,14 +117,20 @@ public:
 	void add_data_reader (const void *id, const std::string &topic_name, const std::string &topic_type_name, std::string &topic_id)
 	{
 		std::lock_guard<std::mutex> lock (m_topic_map_mutex);
-		subscriber_common::add_data_reader (id, topic_name, topic_type_name, topic_id);
+		if (subscriber_common::add_data_reader (id, topic_name, topic_type_name, topic_id))
+		{
+			m_transport.add_topic (topic_id);
+		}
 	}
 
 	/// Remove data reader from the set of data readers that are serviced by this subscriber
 	void remove_data_reader (const void *id, const std::string &topic_id)
 	{
 		std::lock_guard<std::mutex> lock (m_topic_map_mutex);
-		subscriber_common::remove_data_reader (id, topic_id);
+		if (subscriber_common::remove_data_reader (id, topic_id))
+		{
+			m_transport.remove_topic (topic_id);
+		}
 	}
 
 	/// Receive topic data
@@ -156,27 +165,26 @@ public:
 				{
 					dq_lock.unlock ();
 					
-					auto op (make_unique<sync_receive_operation> (topic_data, ec));
-					auto *op_raw = op.get ();
+					auto op (std::make_shared<sync_receive_operation> (topic_data, ec));
 					{
 						std::lock_guard<std::mutex> oq_lock (drctx->m_op_queue_mutex);
-						drctx->m_op_queue.push (std::move (op));
+						drctx->m_op_queue.push (op);
 					}
 					
 					// wait for operation to complete
-					std::unique_lock<std::mutex> l (op_raw->m_mutex);
+					std::unique_lock<std::mutex> l (op->m_mutex);
 					if (timeout)
 					{
-						const auto ret = op_raw->m_cond_done.wait_for (l, std::chrono::seconds(timeout), [&op_raw] () { return op_raw->m_done; });
+						const auto ret = op->m_cond_done.wait_for (l, std::chrono::seconds(timeout), [op] () { return op->m_done; });
 						if (!ret)
 						{
-							op_raw->m_ec = boost::asio::error::operation_aborted;
-							op_raw->m_done = true;
+							op->m_ec = boost::asio::error::operation_aborted;
+							op->m_done = true;
 						}
 					}
 					else
 					{
-						op_raw->m_cond_done.wait (l, [&op_raw] () { return op_raw->m_done; });
+						op->m_cond_done.wait (l, [op] () { return op->m_done; });
 					}
 				}
 			}
@@ -224,9 +232,9 @@ public:
 				{
 					dq_lock.unlock ();
 				
-					auto op (make_unique<async_receive_operation> (topic_data, handler));
+					auto op (std::make_shared<async_receive_operation> (topic_data, handler));
 					std::lock_guard<std::mutex> oq_lock (drctx->m_op_queue_mutex);
-					drctx->m_op_queue.push (std::move (op));
+					drctx->m_op_queue.push (op);
 				}
 			}
 			else
@@ -238,6 +246,12 @@ public:
 		{
 			m_io_service.post (std::bind (handler, yail::pubsub::error::unknown_topic));
 		}
+	}
+
+	void cancel (const void*id, const std::string &topic_id)
+	{
+		std::lock_guard<std::mutex> lock (m_topic_map_mutex);
+		subscriber_common::cancel (id, topic_id);
 	}
 
 private:
@@ -277,13 +291,14 @@ void subscriber<Transport>::do_receive ()
 				if (!ec)
 				{
 					process_pubsub_message (m_buffer);
-					
+
 					do_receive ();
-					
 				}
 				else
 				{
 					complete_ops_with_error (ec);
+
+					do_receive ();
 				}
 			});
 }

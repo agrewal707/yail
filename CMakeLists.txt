@@ -29,10 +29,11 @@ option (YAIL_RPC_ENABLE_UNIX_DOMAIN_TRANSPORT
 Option (BUILD_SHARED_LIBS
 	"Set to OFF to build static libraries" ON)
 
-# constants 
+# constants
 set (YAIL_PUBSUB_MAX_MSG_SIZE 2048)
 set (YAIL_PUBSUB_SHMEM_SEGMENT_SIZE 65535)
-set (YAIL_PUBSUB_SHMEM_RECEIVER_QUEUE_DEPTH 15)
+set (YAIL_PUBSUB_SHMEM_RECEIVER_QUEUE_DEPTH 25)
+set (YAIL_PUBSUB_SHMEM_RECEIVER_BUFFER_QUEUE_DEPTH 1000)
 set (YAIL_RPC_MAX_MSG_SIZE 2048)
 
 # external dependencies
@@ -51,6 +52,9 @@ add_subdirectory (docs)
 
 # yail tests
 add_subdirectory (tests)
+
+# yail wrappers
+add_subdirectory (wrappers)
 
 enable_testing ()
 
@@ -105,45 +109,45 @@ if (YAIL_PUBSUB_ENABLE_SHMEM_TRANSPORT)
 do_test (
 pubsub_shmem_async_singlethreaded
 test_pubsub_shmem
-"--num-writers 5 --num-readers 5 --num-msgs 1000 --data-size 1024"
-"pubsub_shmem1, writer0, sent:1000
-pubsub_shmem1, writer1, sent:1000
-pubsub_shmem1, writer2, sent:1000
-pubsub_shmem1, writer3, sent:1000
-pubsub_shmem1, writer4, sent:1000
-pubsub_shmem1, reader0, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem1, reader1, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem1, reader2, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem1, reader3, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem1, reader4, rcvd:5000, dropped:0, valid:5000
+"--num-writers 5 --num-readers 5 --num-msgs 200 --data-size 1024"
+"pubsub_shmem1, writer0, sent:200
+pubsub_shmem1, writer1, sent:200
+pubsub_shmem1, writer2, sent:200
+pubsub_shmem1, writer3, sent:200
+pubsub_shmem1, writer4, sent:200
+pubsub_shmem1, reader0, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem1, reader1, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem1, reader2, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem1, reader3, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem1, reader4, rcvd:1000, dropped:0, valid:1000
 
-pubsub_shmem2, reader0, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem2, reader1, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem2, reader2, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem2, reader3, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem2, reader4, rcvd:5000, dropped:0, valid:5000"
+pubsub_shmem2, reader0, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem2, reader1, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem2, reader2, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem2, reader3, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem2, reader4, rcvd:1000, dropped:0, valid:1000"
 )
 
 do_test (
 pubsub_shmem_sync_multithreaded
 test_pubsub_shmem
-"--num-writers 5 --num-readers 5 --num-msgs 1000 --data-size 1024 --multithreaded"
-"pubsub_shmem1, writer0, sent:1000
-pubsub_shmem1, writer1, sent:1000
-pubsub_shmem1, writer2, sent:1000
-pubsub_shmem1, writer3, sent:1000
-pubsub_shmem1, writer4, sent:1000
-pubsub_shmem1, reader0, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem1, reader1, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem1, reader2, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem1, reader3, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem1, reader4, rcvd:5000, dropped:0, valid:5000
+"--num-writers 5 --num-readers 5 --num-msgs 200 --data-size 1024 --multithreaded"
+"pubsub_shmem1, writer0, sent:200
+pubsub_shmem1, writer1, sent:200
+pubsub_shmem1, writer2, sent:200
+pubsub_shmem1, writer3, sent:200
+pubsub_shmem1, writer4, sent:200
+pubsub_shmem1, reader0, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem1, reader1, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem1, reader2, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem1, reader3, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem1, reader4, rcvd:1000, dropped:0, valid:1000
 
-pubsub_shmem2, reader0, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem2, reader1, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem2, reader2, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem2, reader3, rcvd:5000, dropped:0, valid:5000
-pubsub_shmem2, reader4, rcvd:5000, dropped:0, valid:5000"
+pubsub_shmem2, reader0, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem2, reader1, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem2, reader2, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem2, reader3, rcvd:1000, dropped:0, valid:1000
+pubsub_shmem2, reader4, rcvd:1000, dropped:0, valid:1000"
 )
 endif(YAIL_PUBSUB_ENABLE_SHMEM_TRANSPORT)
 

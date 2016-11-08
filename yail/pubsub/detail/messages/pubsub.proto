@@ -17,7 +17,7 @@ message pubsub_data
 	required string domain = 1;
 	required string topic_name = 2;
 	required string topic_type_name = 3;
-  required bytes topic_data = 4;
+	required bytes topic_data = 4;
 }
 
 message pubsub

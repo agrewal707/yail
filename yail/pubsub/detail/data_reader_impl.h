@@ -24,6 +24,8 @@ public:
 	template <typename Handler>
 	void async_read (T &t, const Handler &handler);
 
+	void cancel ();
+
 private:
 	template <typename Handler>
 	struct read_operation
@@ -126,6 +128,12 @@ void data_reader_impl<T, Transport>::async_read (T &t, const Handler &handler)
 					op->m_handler (ec);
 				}
 			});
+}
+
+template <typename T, typename Transport>
+void data_reader_impl<T, Transport>::cancel ()
+{
+	m_service.get_subscriber ().cancel (this, m_topic_id);
 }
 
 } // namespace detail
