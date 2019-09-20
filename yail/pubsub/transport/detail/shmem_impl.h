@@ -17,9 +17,6 @@
 #include <boost/interprocess/allocators/allocator.hpp>
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <boost/interprocess/sync/scoped_lock.hpp>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_io.hpp>
-#include <boost/uuid/uuid_generators.hpp>
 
 #include <yail/log.h>
 #include <yail/pubsub/error.h>
@@ -32,16 +29,21 @@ namespace pubsub {
 namespace transport {
 namespace detail {
 
-using namespace boost::interprocess;	
+using namespace boost::interprocess;
 
 class shmem_impl
 {
 public:
+	struct uuid_str : public std::string
+	{
+		uuid_str ();
+	};
+
 	class channel_map
 	{
 	public:
 		// receiver list
-		using shm_char_allocator = allocator<char, managed_shared_memory::segment_manager>; 
+		using shm_char_allocator = allocator<char, managed_shared_memory::segment_manager>;
 		using shm_string = basic_string<char, std::char_traits<char>, shm_char_allocator>;
 
 		struct shm_receiver_ctx
@@ -99,7 +101,7 @@ public:
 				m_op_queue.push (op);
 			}
 			m_op_available.notify_one ();
-			
+
 			// wait for operation to complete
 			std::unique_lock<std::mutex> lock (op->m_mutex);
 			if (timeout)
@@ -116,7 +118,7 @@ public:
 				op->m_cond_done.wait (lock, [op] () { return op->m_done; });
 			}
 		}
-		
+
 		template <typename Handler>
 		void async_send (const std::string &topic_id, const yail::buffer &buffer, const Handler &handler)
 		{
@@ -124,7 +126,7 @@ public:
 			{
 				std::lock_guard<std::mutex> lock (m_op_mutex);
 				m_op_queue.push (op);
-			}	
+			}
 			m_op_available.notify_one ();
 		}
 
@@ -134,9 +136,9 @@ public:
 			enum type { SYNC, ASYNC };
 			YAIL_API send_operation (const std::string &topic_id, const yail::buffer &buffer, type t);
 			YAIL_API virtual ~send_operation ();
-			
+
 			bool is_async () const { return m_type == ASYNC; }
-		
+
 			std::string m_topic_id;
 			const yail::buffer &m_buffer;
 			type m_type;
@@ -157,7 +159,7 @@ public:
 			YAIL_API async_send_operation (const std::string &topic_id, const yail::buffer &buffer, const send_handler &handler);
 			YAIL_API ~async_send_operation ();
 
-			send_handler m_handler;	
+			send_handler m_handler;
 		};
 
 		void do_work ();
@@ -178,8 +180,8 @@ public:
 		receiver (yail::io_service &io_service, channel_map &channel_map);
 		~receiver ();
 
-		boost::uuids::uuid get_uuid () const 
-		{ 
+		std::string get_uuid () const
+		{
 			return m_uuid;
 		}
 
@@ -199,7 +201,7 @@ public:
 			else
 			{
 				bq_lock.unlock ();
-				
+
 				auto op = yail::make_unique<receive_operation> (buffer, handler);
 				std::lock_guard<std::mutex> op_lock (m_op_queue_mutex);
 				m_op_queue.push (std::move(op));
@@ -222,7 +224,7 @@ public:
 
 		yail::io_service &m_io_service;
 		channel_map &m_channel_map;
-		boost::uuids::uuid m_uuid;
+		uuid_str m_uuid;
 		boost::interprocess::message_queue m_mq;
 		std::queue<std::unique_ptr<receive_operation>> m_op_queue;
 		std::mutex m_op_queue_mutex;

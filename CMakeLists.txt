@@ -5,7 +5,7 @@ cmake_minimum_required (VERSION 2.8.12)
 project (yail)
 
 # project version
-set (${PROJECT_NAME}_VERSION 1.0.0)
+set (${PROJECT_NAME}_VERSION 0.0.1)
 set (${PROJECT_NAME}_SOVERSION ${${PROJECT_NAME}_VERSION})
 
 # options

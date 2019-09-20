@@ -16,13 +16,15 @@ template <typename T, typename Transport>
 class data_writer_impl
 {
 public:
-	data_writer_impl (service_impl<Transport> &service, topic_impl<T> &topic);
+	data_writer_impl (service_impl<Transport> &service, const topic_impl<T> &topic);
 	~data_writer_impl ();
-	
+
 	void write (const T &t, boost::system::error_code &ec, const uint32_t timeout);
 
 	template <typename Handler>
 	void async_write (const T &t, const Handler &h);
+
+	void shutdown ();
 
 private:
 	template <typename Handler>
@@ -35,7 +37,7 @@ private:
 	};
 
 	service_impl<Transport> &m_service;
-	topic_impl<T> &m_topic;
+	const topic_impl<T> &m_topic;
 	std::string m_topic_id;
 };
 
@@ -66,16 +68,22 @@ data_writer_impl<T, Transport>::write_operation<Handler>::~write_operation ()
 //
 template <typename T, typename Transport>
 data_writer_impl<T, Transport>::data_writer_impl (
-	service_impl<Transport> &service, topic_impl<T> &topic) :
+	service_impl<Transport> &service, const topic_impl<T> &topic) :
 	m_service (service),
 	m_topic (topic),
 	m_topic_id ()
 {
-	m_service.get_publisher ().add_data_writer (this, m_topic.get_name (), m_topic.get_type_name (), m_topic_id);
+	m_service.get_publisher ().add_data_writer (this, m_topic.get_info (), m_topic_id);
 }
 
 template <typename T, typename Transport>
 data_writer_impl<T, Transport>::~data_writer_impl ()
+{
+	shutdown ();
+}
+
+template <typename T, typename Transport>
+void data_writer_impl<T, Transport>::shutdown ()
 {
 	m_service.get_publisher ().remove_data_writer (this, m_topic_id);
 }

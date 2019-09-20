@@ -23,6 +23,7 @@ FIND_LIBRARY(boost_asio_LIBRARY
 		boost_asio
 	PATHS
 		${BOOST_ASIO_INSTALL_DIR}/lib
+	NO_CMAKE_FIND_ROOT_PATH
 )
 
 SET(boost_asio_LIBRARIES

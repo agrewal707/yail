@@ -1,0 +1,12 @@
+menuconfig YAIL_SUPPORT
+	bool "YAIL IPC library"
+	select YAIL
+	default y
+
+if YAIL_SUPPORT
+
+config YAIL
+	bool
+	default y
+
+endif # YAIL

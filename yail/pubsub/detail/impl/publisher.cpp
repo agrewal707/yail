@@ -18,14 +18,19 @@ publisher_common::send_operation::~send_operation ()
 {}
 
 //
-// publisher_common::dw_ctx
+// publisher_common::topic
 //
-publisher_common::dw::dw (const std::string &topic_name, const std::string &topic_type_name) :
-	m_topic_name (topic_name),
-	m_topic_type_name (topic_type_name)
-{}
+publisher_common::topic::topic (const topic_info &topic_info) :
+	m_topic_info (topic_info)
+{
 
-publisher_common::dw::~dw ()
+	if (topic_info.m_qos.m_durability.m_type == topic_qos::durability::TRANSIENT_LOCAL)
+	{
+		m_data_ring.set_capacity (topic_info.m_qos.m_durability.m_depth);
+	}
+}
+
+publisher_common::topic::~topic ()
 {}
 
 //
@@ -42,32 +47,31 @@ publisher_common::~publisher_common ()
 	m_topic_map.clear ();
 }
 
-void publisher_common::add_data_writer (const void *id, const std::string &topic_name,
-	const std::string &topic_type_name, std::string &topic_id)
+void publisher_common::add_data_writer (const void *id, const topic_info &topic_info, std::string &topic_id)
 {
 	// set topic id for this data writer
-	topic_id = m_domain+topic_name+topic_type_name;
-
-	// create data reader ctx
-	auto dwctx (yail::make_unique<dw> (topic_name, topic_type_name));
+	topic_id = m_domain+topic_info.m_name+topic_info.m_type_name;
 
 	auto it = m_topic_map.find (topic_id);
 	if (it == m_topic_map.end ())
 	{
 		// create and add data writer map to topic map
-		auto dwmap (yail::make_unique<dw_map> ());
-		auto result = m_topic_map.insert (std::make_pair (topic_id, std::move (dwmap)));
+		auto tctx (yail::make_unique<topic> (topic_info));
+		auto result = m_topic_map.emplace (topic_id, std::move (tctx));
 		if (!result.second)
 		{
 			YAIL_THROW_EXCEPTION (
-				yail::system_error, "failed to add data writer map for " + topic_id, 0);
+				yail::system_error, "failed to add topic context for " + topic_id, 0);
 		}
 		it = result.first;
 	}
 
+	// create dw ctx
+	auto dwctx (std::make_shared<dw> ());
+
 	// add data writer ctx to data writer map
-	auto &dwmap = it->second;
-	auto result = dwmap->insert (std::make_pair (id, std::move(dwctx)));
+	auto &tctx = it->second;
+	auto result = tctx->m_dw_map.emplace (id, dwctx);
 	if (!result.second)
 	{
 		YAIL_THROW_EXCEPTION (
@@ -81,24 +85,105 @@ void publisher_common::remove_data_writer (const void *id, const std::string &to
 	auto it = m_topic_map.find (topic_id);
 	if (it != m_topic_map.end ())
 	{
-		auto &dwmap = it->second;
+		auto &tctx = it->second;
 
 		// look up data writer ctx
-		auto it2 = dwmap->find (id);
-		if (it2 != dwmap->end ())
+		auto it2 = tctx->m_dw_map.find (id);
+		if (it2 != tctx->m_dw_map.end ())
 		{
-			dwmap->erase (it2);
+			tctx->m_dw_map.erase (it2);
 		}
 
-		if (dwmap->empty ())
+		if (tctx->m_dw_map.empty ())
 		{
 			m_topic_map.erase (it);
 		}
 	}
 }
 
-bool publisher_common::construct_pubsub_message (const std::string &topic_name,
-	const std::string &topic_type_name, const std::string &topic_data, yail::buffer &buffer)
+std::weak_ptr<publisher_common::dw>
+publisher_common::build_data_message (
+	const void *id,
+	const std::string &topic_id,
+	const std::string &topic_data,
+	yail::buffer &buffer,
+	boost::system::error_code &ec)
+{
+	std::weak_ptr<dw> retval;
+
+	// A performance optimization is possible by maintaining
+	// separate mutex for topic_map and dw_map, but we keep things
+	// simple by maintaining a single mutex.
+	std::lock_guard<std::mutex> lock (m_topic_map_mutex);
+
+	// lookup topic context
+	auto it = m_topic_map.find (topic_id);
+	if (it != m_topic_map.end ())
+	{
+		auto &tctx = it->second;
+
+		// look up data writer ctx
+		auto it2 = tctx->m_dw_map.find (id);
+		if (it2 != tctx->m_dw_map.end ())
+		{
+			messages::pubsub_data data;
+			if (construct_pubsub_data (tctx->m_topic_info, topic_data, data))
+			{
+				if (construct_pubsub_message (data, buffer))
+				{
+					tctx->m_data_ring.push_back (data);
+					retval = it2->second;
+					ec = boost::system::error_code ();
+				}
+				else
+				{
+					ec = yail::pubsub::error::system_error;
+				}
+			}
+			else
+			{
+				ec = yail::pubsub::error::system_error;
+			}
+		}
+		else
+		{
+			ec = yail::pubsub::error::unknown_data_writer;
+		}
+	}
+	else
+	{
+		ec = yail::pubsub::error::unknown_topic;
+	}
+
+	return retval;
+}
+
+bool publisher_common::construct_pubsub_data (
+	const topic_info &topic_info,
+	const std::string &topic_data,
+	messages::pubsub_data &data)
+{
+	bool retval = false;
+
+	try
+	{
+		data.set_domain (m_domain);
+		data.set_topic_name (topic_info.m_name);
+		data.set_topic_type_name (topic_info.m_type_name);
+		data.set_topic_data (topic_data);
+		retval = true;
+	}
+	catch (const std::exception &ex)
+	{
+		YAIL_LOG_WARNING (ex.what ());
+	}
+
+	return retval;
+}
+
+bool publisher_common::construct_pubsub_message (
+	const messages::pubsub_data &d,
+	yail::buffer &buffer)
 {
 	bool retval = false;
 
@@ -106,16 +191,12 @@ bool publisher_common::construct_pubsub_message (const std::string &topic_name,
 	{
 		// header
 		auto hdr (yail::make_unique<messages::pubsub_header> ());
-		hdr->set_version (1);
+		hdr->set_version (messages::pubsub_header::VERSION_1);
 		hdr->set_type (messages::pubsub_header::DATA);
 		hdr->set_id (m_mid++);
 
 		// data
-		auto data (yail::make_unique<messages::pubsub_data> ());
-		data->set_domain (m_domain);
-		data->set_topic_name (topic_name);
-		data->set_topic_type_name (topic_type_name);
-		data->set_topic_data (topic_data);
+		auto data (yail::make_unique<messages::pubsub_data> (d));
 
 		messages::pubsub msg;
 		msg.set_allocated_header (hdr.get ());
@@ -141,4 +222,3 @@ bool publisher_common::construct_pubsub_message (const std::string &topic_name,
 } // namespace detail
 } // namespace pubsub
 } // namespace yail
-

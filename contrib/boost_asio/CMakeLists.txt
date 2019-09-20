@@ -5,13 +5,13 @@ cmake_minimum_required (VERSION 2.8.12)
 project (boost_asio)
 
 # project version
-set (${PROJECT_NAME}_VERSION 1.0.0)
+set (${PROJECT_NAME}_VERSION 0.0.1)
 set (${PROJECT_NAME}_SOVERSION ${${PROJECT_NAME}_VERSION})
 
 # dependencies
 find_package (Boost REQUIRED system)
 
-add_definitions (-std=c++11 -Werror -DBOOST_ASIO_DYN_LINK)
+add_definitions (-std=c++11 -Werror -DBOOST_ASIO_DYN_LINK -DBOOST_NO_AUTO_PTR)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fvisibility-inlines-hidden")
 set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -fvisibility-inlines-hidden")

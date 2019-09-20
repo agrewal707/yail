@@ -55,7 +55,7 @@ public:
 	 *
 	 * @param[in] topic The typed topic.
 	 */
-	data_writer (service<Transport> &service, topic<T> &topic);
+	data_writer (service<Transport> &service, const topic<T> &topic);
 
 	/**
 	 * @brief data writer is not copyable.

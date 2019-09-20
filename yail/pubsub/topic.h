@@ -2,6 +2,7 @@
 #define YAIL_PUBSUB_TOPIC_H
 
 #include <string>
+#include <yail/pubsub/topic_qos.h>
 
 //
 // Forward Declarations
@@ -9,7 +10,7 @@
 namespace yail {
 namespace pubsub {
 
-template <typename T, typename Transport> 
+template <typename T, typename Transport>
 class data_writer;
 
 template <typename T, typename Transport>
@@ -37,7 +38,7 @@ namespace pubsub {
 
 /**
  * @brief Represents a named and typed data object.
- * 
+ *
  * Topics enable data writers and readers to exchange
  * named data objects of specific type.
  *
@@ -55,7 +56,7 @@ public:
 	 * @param[in] name The name of the topic.
 	 *
 	 */
-	explicit topic (const std::string& name);
+	explicit topic (const std::string& name, const topic_qos &tq = topic_qos());
 
 	/**
 	 * @brief Destroys this object.
@@ -63,13 +64,13 @@ public:
 	~topic ();
 
 private:
-	template <typename U, typename Transport> 
+	template <typename U, typename Transport>
 	friend class data_writer;
 
 	template <typename U, typename Transport>
 	friend class data_reader;
-	
-	impl_type& get_impl () { return *m_impl; }
+
+	const impl_type& get_impl () const { return *m_impl; }
 
 	std::unique_ptr<impl_type> m_impl;
 };

@@ -12,7 +12,7 @@ else(YAIL_BUILD_BOOST_ASIO_LIBRARY)
 endif(YAIL_BUILD_BOOST_ASIO_LIBRARY)
 
 # build flags
-add_definitions (-std=c++11 -Werror -DYAIL_DLL -DBOOST_ASIO_DYN_LINK)
+add_definitions (-std=c++11 -Werror -DYAIL_DLL -DBOOST_ASIO_DYN_LINK -DBOOST_NO_AUTO_PTR)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DYAIL_DEBUG -DYAIL_TRACE")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fvisibility-inlines-hidden")
 set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -fvisibility-inlines-hidden")
@@ -45,10 +45,10 @@ set (PUB_EXE hello_pub)
 set (SUB_EXE hello_sub)
 
 add_executable (${PUB_EXE} ${PUB_SOURCES})
-target_link_libraries (${PUB_EXE} hello_messages ${PROJECT_NAME} ${boost_asio_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LIBRARY} -lpthread)
+target_link_libraries (${PUB_EXE} hello_messages ${PROJECT_NAME} ${boost_asio_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LITE_LIBRARY} -lpthread)
 
 add_executable (${SUB_EXE} ${SUB_SOURCES})
-target_link_libraries (${SUB_EXE} hello_messages ${PROJECT_NAME} ${boost_asio_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LIBRARY} -lpthread)
+target_link_libraries (${SUB_EXE} hello_messages ${PROJECT_NAME} ${boost_asio_LIBRARIES} ${Boost_LIBRARIES} ${PROTOBUF_LITE_LIBRARY} -lpthread)
 
 # install
 install (TARGETS ${PUB_EXE} DESTINATION bin)

@@ -11,6 +11,7 @@ namespace yail {
 
 #if defined (YAIL_USES_BOOST_ASIO)
 using io_service = boost::asio::io_service;
+namespace io_service_error = boost::asio::error;
 #endif
 
 } // namespace yail

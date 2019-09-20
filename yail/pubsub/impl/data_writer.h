@@ -7,7 +7,7 @@ namespace yail {
 namespace pubsub {
 
 template <typename T, typename Transport>
-data_writer<T, Transport>::data_writer (service<Transport> &service, topic<T> &topic) :
+data_writer<T, Transport>::data_writer (service<Transport> &service, const topic<T> &topic) :
 	m_impl (make_unique<impl_type> (service.get_impl (), topic.get_impl ()))
 {
 	YAIL_LOG_FUNCTION (this);

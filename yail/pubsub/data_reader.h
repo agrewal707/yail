@@ -56,7 +56,7 @@ public:
 	 *
 	 * @param[in] topic The typed topic.
 	 */
-	data_reader (service<Transport> &service, topic<T> &topic);
+	data_reader (service<Transport> &service, const topic<T> &topic);
 
 	/**
 	 * @brief data reader is not copyable.

@@ -16,7 +16,7 @@ template <typename T, typename Transport>
 class data_reader_impl
 {
 public:
-	data_reader_impl (service_impl<Transport> &service, topic_impl<T> &topic);
+	data_reader_impl (service_impl<Transport> &service, const topic_impl<T> &topic);
 	~data_reader_impl ();
 
 	void read (T &t, boost::system::error_code &ec, const uint32_t timeout);
@@ -25,6 +25,7 @@ public:
 	void async_read (T &t, const Handler &handler);
 
 	void cancel ();
+	void shutdown ();
 
 private:
 	template <typename Handler>
@@ -39,7 +40,7 @@ private:
 	};
 
 	service_impl<Transport> &m_service;
-	topic_impl<T> &m_topic;
+	const topic_impl<T> &m_topic;
 	std::string m_topic_id;
 };
 
@@ -75,16 +76,22 @@ data_reader_impl<T, Transport>::read_operation<Handler>::~read_operation ()
 // data_reader_impl
 //
 template <typename T, typename Transport>
-data_reader_impl<T, Transport>::data_reader_impl (service_impl<Transport> &service, topic_impl<T> &topic) :
+data_reader_impl<T, Transport>::data_reader_impl (service_impl<Transport> &service, const topic_impl<T> &topic) :
 	m_service (service),
 	m_topic (topic),
 	m_topic_id ()
 {
-	m_service.get_subscriber ().add_data_reader (this, m_topic.get_name (), m_topic.get_type_name (), m_topic_id);
+	m_service.get_subscriber ().add_data_reader (this, m_topic.get_info (), m_topic_id);
 }
 
 template <typename T, typename Transport>
 data_reader_impl<T, Transport>::~data_reader_impl ()
+{
+	shutdown ();
+}
+
+template <typename T, typename Transport>
+void data_reader_impl<T, Transport>::shutdown ()
 {
 	m_service.get_subscriber ().remove_data_reader (this, m_topic_id);
 }

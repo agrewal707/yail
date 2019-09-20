@@ -38,7 +38,7 @@ subscriber_common::sync_receive_operation::~sync_receive_operation ()
 //
 subscriber_common::async_receive_operation::async_receive_operation (std::string &topic_data, const receive_handler &handler) :
 	receive_operation(topic_data, ASYNC),
-	m_handler (handler)	
+	m_handler (handler)
 {}
 
 subscriber_common::async_receive_operation::~async_receive_operation ()
@@ -46,22 +46,25 @@ subscriber_common::async_receive_operation::~async_receive_operation ()
 
 
 //
-// subscriber_common::dr_ctx
+// subscriber_common::topic
 //
-subscriber_common::dr::dr (const std::string &topic_name, const std::string &topic_type_name) :
-	m_topic_name (topic_name),
-	m_topic_type_name (topic_type_name)
+subscriber_common::topic::topic (const topic_info &topic_info) :
+	m_topic_info (topic_info)
 {}
 
-subscriber_common::dr::~dr ()
+subscriber_common::topic::~topic ()
 {}
 
 //
 // subscriber_common
 //
-subscriber_common::subscriber_common (yail::io_service &io_service, const std::string &domain) :
+subscriber_common::subscriber_common (
+	yail::io_service &io_service,
+	const std::string &domain,
+	const notify_handler &handler) :
 	m_io_service (io_service),
-	m_domain (domain)
+	m_domain (domain),
+	m_notify_handler (handler)
 {}
 
 subscriber_common::~subscriber_common ()
@@ -69,39 +72,47 @@ subscriber_common::~subscriber_common ()
 	m_topic_map.clear ();
 }
 
-bool subscriber_common::add_data_reader (const void *id, const std::string &topic_name,
-	const std::string &topic_type_name, std::string &topic_id)
+bool subscriber_common::add_data_reader (const void *id, const topic_info &topic_info, std::string &topic_id)
 {
 	bool retval = false;
 
 	// set topic id for this data reader
-	topic_id = m_domain+topic_name+topic_type_name;
-
-	// create data reader ctx
-	auto drctx (yail::make_unique<dr> (topic_name, topic_type_name));
+	topic_id = m_domain+topic_info.m_name+topic_info.m_type_name;
 
 	auto it = m_topic_map.find (topic_id);
 	if (it == m_topic_map.end ())
 	{
-		// create and add data reader map to topic map
-		auto drmap (yail::make_unique<dr_map> ());
-		auto result = m_topic_map.insert (std::make_pair (topic_id, std::move (drmap)));
+		// create and add topic context to topic map
+		auto tctx (yail::make_unique<topic> (topic_info));
+		auto result = m_topic_map.emplace (topic_id, std::move (tctx));
 		if (!result.second)
 		{
 			YAIL_THROW_EXCEPTION (
-				yail::system_error, "failed to add data reader map for " + topic_id, 0);
+				yail::system_error, "failed to add topic context for " + topic_id, 0);
 		}
 		it = result.first;
 		retval = true;
 	}
 
-	// add data reader ctx to data reader map
-	auto &drmap = it->second;
-	auto result = drmap->insert (std::make_pair (id, std::move(drctx)));
+	// create data reader ctx
+	auto drctx (yail::make_unique<dr> ());
+
+	// add data reader ctx to data reader map in topic context
+	auto &tctx = it->second;
+	auto result = tctx->m_dr_map.emplace (id, std::move(drctx));
 	if (!result.second)
 	{
 		YAIL_THROW_EXCEPTION (
 			yail::system_error, "failed to add data reader for " + topic_id, 0);
+	}
+
+	if (!topic_info.is_builtin () && topic_info.is_durable ())
+	{
+		messages::subscription sub;
+		if (construct_subscription(topic_info, sub))
+		{
+			m_io_service.post(std::bind (m_notify_handler, sub));
+		}
 	}
 
 	return retval;
@@ -115,16 +126,16 @@ bool subscriber_common::remove_data_reader (const void *id, const std::string &t
 	auto it = m_topic_map.find (topic_id);
 	if (it != m_topic_map.end ())
 	{
-		auto &drmap = it->second;
+		auto &tctx = it->second;
 
 		// look up data reader ctx
-		auto it2 = drmap->find (id);
-		if (it2 != drmap->end ())
+		auto it2 = tctx->m_dr_map.find (id);
+		if (it2 != tctx->m_dr_map.end ())
 		{
-			drmap->erase (it2);
+			tctx->m_dr_map.erase (it2);
 		}
 
-		if (drmap->empty ())
+		if (tctx->m_dr_map.empty ())
 		{
 			m_topic_map.erase (it);
 			retval = true;
@@ -140,20 +151,20 @@ void subscriber_common::cancel (const void *id, const std::string &topic_id)
 	auto it = m_topic_map.find (topic_id);
 	if (it != m_topic_map.end ())
 	{
-		auto &drmap = it->second;
+		auto &tctx = it->second;
 
 		// look up data reader ctx
-		auto it2 = drmap->find (id);
-		if (it2 != drmap->end ())
+		auto it2 = tctx->m_dr_map.find (id);
+		if (it2 != tctx->m_dr_map.end ())
 		{
 			auto &drctx = it2->second;
-			
+
 			std::lock_guard<std::mutex> oq_lock (drctx->m_op_queue_mutex);
 			while (!drctx->m_op_queue.empty ())
 			{
 				auto op = drctx->m_op_queue.front ();
 				drctx->m_op_queue.pop ();
-				
+
 				if (op->is_async ())
 				{
 					auto async_op = static_cast<async_receive_operation*> (op.get ());
@@ -164,12 +175,33 @@ void subscriber_common::cancel (const void *id, const std::string &topic_id)
 	}
 }
 
+bool subscriber_common::construct_subscription (
+	const topic_info &topic_info,
+	messages::subscription &sub)
+{
+	bool retval = false;
+
+	try
+	{
+		sub.set_domain (m_domain);
+		sub.set_topic_name (topic_info.m_name);
+		sub.set_topic_type_name (topic_info.m_type_name);
+		retval = true;
+	}
+	catch (const std::exception &ex)
+	{
+		YAIL_LOG_WARNING (ex.what ());
+	}
+
+	return retval;
+}
+
 void subscriber_common::process_pubsub_message (const yail::buffer &buffer)
 {
 	messages::pubsub msg;
 	if (msg.ParseFromArray (buffer.data (), buffer.size ()))
 	{
-		if (msg.header ().version () != 1)
+		if (msg.header ().version () != messages::pubsub_header::VERSION_1)
 		{
 			YAIL_LOG_WARNING ("invalid pubsub message version");
 			return;
@@ -191,7 +223,7 @@ void subscriber_common::process_pubsub_message (const yail::buffer &buffer)
 
 void subscriber_common::process_pubsub_data (const messages::pubsub_data &data)
 {
-	std::string topic_id (m_domain + data.topic_name () + data.topic_type_name ());
+	std::string topic_id (data.domain () + data.topic_name () + data.topic_type_name ());
 
 	std::unique_lock<std::mutex> lock(m_topic_map_mutex);
 
@@ -199,21 +231,22 @@ void subscriber_common::process_pubsub_data (const messages::pubsub_data &data)
 	auto it = m_topic_map.find (topic_id);
 	if (it != m_topic_map.end ())
 	{
-		auto &drmap = it->second;
-		
-		for (auto &val : *drmap)
+		auto &tctx = it->second;
+
+		// copy received data to all data readers for this topic
+		for (auto &val : tctx->m_dr_map)
 		{
 			auto &drctx = val.second;
-			
+
 			std::unique_lock<std::mutex> oq_lock (drctx->m_op_queue_mutex);
 			if (!drctx->m_op_queue.empty ())
 			{
 				auto op = drctx->m_op_queue.front ();
 				drctx->m_op_queue.pop ();
 				oq_lock.unlock ();
-				
+
 				op->m_topic_data = data.topic_data ();
-				
+
 				if (op->is_async ())
 				{
 					auto async_op = static_cast<async_receive_operation*> (op.get ());
@@ -234,7 +267,7 @@ void subscriber_common::process_pubsub_data (const messages::pubsub_data &data)
 			else
 			{
 				oq_lock.unlock ();
-				
+
 				std::lock_guard<std::mutex> dq_lock (drctx->m_data_queue_mutex);
 				drctx->m_data_queue.push (data.topic_data ());
 			}
@@ -250,17 +283,17 @@ void subscriber_common::complete_ops_with_error (const boost::system::error_code
 
 	for (auto &val : m_topic_map)
 	{
-		auto &drmap = val.second;
-		for (auto &val2 : *drmap)
+		auto &tctx = val.second;
+		for (auto &val2 : tctx->m_dr_map)
 		{
 			auto &drctx = val2.second;
-			
+
 			std::lock_guard<std::mutex> oq_lock (drctx->m_op_queue_mutex);
 			while (!drctx->m_op_queue.empty ())
 			{
 				auto op = std::move (drctx->m_op_queue.front ());
 				drctx->m_op_queue.pop ();
-				
+
 				if (op->is_async ())
 				{
 					auto async_op = static_cast<async_receive_operation*> (op.get ());
@@ -284,4 +317,3 @@ void subscriber_common::complete_ops_with_error (const boost::system::error_code
 } // namespace detail
 } // namespace pusub
 } // namespace yail
-

@@ -1,3 +1,5 @@
+syntax="proto2";
+
 package yail.wrappers.pubsub.shell.messages;
 option optimize_for = LITE_RUNTIME;
 

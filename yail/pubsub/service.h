@@ -21,7 +21,7 @@ class shmem;
 namespace yail {
 namespace pubsub {
 
-template <typename T, typename Transport> 
+template <typename T, typename Transport>
 class data_writer;
 
 template <typename T, typename Transport>
@@ -49,7 +49,7 @@ namespace pubsub {
 
 /**
  * @brief Provides core publish/subscribe (pubsub) functionality.
- * 
+ *
  * @ingroup yail_pubsub
  */
 template <typename Transport = transport::shmem>
@@ -96,7 +96,7 @@ public:
 	~service ();
 
 private:
-	template <typename T, typename U> 
+	template <typename T, typename U>
 	friend class data_writer;
 
 	template <typename T, typename U>

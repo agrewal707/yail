@@ -6,6 +6,7 @@
 #include <yail/pubsub/service.h>
 #include <yail/pubsub/data_writer.h>
 #include <yail/pubsub/data_reader.h>
+#include <yail/pubsub/topic_qos.h>
 
 #include "topics.h"
 
@@ -16,12 +17,12 @@ std::mutex log_mutex;
 	std::lock_guard<std::mutex> lock (log_mutex); \
 	*olog << msg << std::endl; \
 } while (0)
-	
+
 #define LOG_ERROR(msg) do { \
 	std::lock_guard<std::mutex> lock (log_mutex); \
 	*olog << msg << std::endl;	\
 } while (0)
-	
+
 #ifndef NDEBUG
 #define LOG_DEBUG(msg) do { \
 	std::lock_guard<std::mutex> lock (log_mutex); \
@@ -44,6 +45,8 @@ struct pargs
 	size_t m_num_readers;
 	size_t m_num_msgs;
 	size_t m_data_size;
+	bool m_durability;
+	size_t m_depth;
 	std::string m_log_file;
 	bool m_multithreaded;
 
@@ -68,24 +71,26 @@ struct pargs
 			("num-readers", po::value<size_t>()->required(), "max num of data readers to instantiate.")
 			("num-msgs", po::value<size_t>(), "max num number of messages to send")
 			("data-size", po::value<size_t>(), "size of data to write in each message")
+			("durability", po::value<bool>(), "set true for transient local")
+			("depth", po::value<size_t>(), "depth of samples kept if transient")
 			("log-file", po::value<std::string>(), "log file")
 			("multithreaded", "Reader/writer has separate thread.")
 			;
 
-		try 
+		try
 		{
 			po::variables_map vm;
 			po::store (po::parse_command_line(argc, argv, desc), vm);
 			po::notify (vm);
-		
-			if (vm.count("help") || argc < 2) 
+
+			if (vm.count("help") || argc < 2)
 			{
 				LOG_INFO (desc);
 				return false;
 			}
 
 			m_name = argv[0];
-			
+
 			if (vm.count("num-writers"))
 				m_num_writers = vm["num-writers"].as<size_t> ();
 
@@ -98,15 +103,21 @@ struct pargs
 			if (vm.count("data-size"))
 				m_data_size = vm["data-size"].as<size_t> ();
 
+			if (vm.count("durability"))
+				m_durability = vm["durability"].as<bool> ();
+
+			if (vm.count("depth"))
+				m_depth = vm["depth"].as<size_t> ();
+
 			if (vm.count("log-file"))
 				m_log_file = vm["log-file"].as<std::string> ();
-	
+
 			if (vm.count("multithreaded"))
 				m_multithreaded = true;
-	
+
 			retval = true;
-		} 
-		catch (...) 
+		}
+		catch (...)
 		{
 			LOG_INFO (desc);
 		}
@@ -125,10 +136,10 @@ void writer_done ()
 
 class writer
 {
-public:    
+public:
 	writer (const std::string &name,
-	        yail::pubsub::service<transport> &pubsub_service, 
-	        yail::pubsub::topic<messages::hello> &hello_topic, 
+	        yail::pubsub::service<transport> &pubsub_service,
+	        yail::pubsub::topic<messages::hello> &hello_topic,
 	        pargs &pa):
 		m_name (name),
 		m_hello_dw (pubsub_service, hello_topic),
@@ -138,14 +149,14 @@ public:
 		m_thread (),
 		m_stopped (false)
 	{
-		if (m_pa.m_multithreaded) 
+		if (m_pa.m_multithreaded)
 		{
 			m_thread = std::thread (
-				[this] () 
+				[this] ()
 				{
 					bool done = false;
-					while (!done) 
-					{						
+					while (!done)
+					{
 						write ();
 						if (m_seq == m_pa.m_num_msgs+1)
 						{
@@ -154,7 +165,7 @@ public:
 						}
 					}
 				});
-/*			
+/*
 			m_thread2 = std::thread (
 				[&] ()
 				{
@@ -166,12 +177,12 @@ public:
 				});
 */
 		}
-		else 
+		else
 		{
 			do_write ();
-		}		
+		}
 	}
-	
+
 	~writer ()
 	{
 		if (m_pa.m_multithreaded)
@@ -180,12 +191,12 @@ public:
 			//m_thread2.join ();
 		}
 	}
-	
+
 	void stop ()
 	{
-		m_stopped = true;		
+		m_stopped = true;
 	}
-		
+
 	void print_stats () const
 	{
 		LOG_INFO (
@@ -210,7 +221,7 @@ private:
 		boost::crc_32_type  result;
 		result.process_bytes (tmp.data (), tmp.size ());
 		m_value.set_crc (result.checksum ());
-		
+
 		boost::system::error_code ec;
 		m_hello_dw.write (m_value, ec, 2);
 		if (!ec)
@@ -227,7 +238,7 @@ private:
 			LOG_ERROR ("error: " << ec);
 		}
 	}
-	
+
 	void do_write ()
 	{
 		if (m_seq == m_pa.m_num_msgs+1)
@@ -284,10 +295,10 @@ private:
 
 class reader
 {
-public:	
+public:
 	reader (const std::string &name,
-	        yail::pubsub::service<transport> &pubsub_service, 
-	        yail::pubsub::topic<messages::hello> &hello_topic, 
+	        yail::pubsub::service<transport> &pubsub_service,
+	        yail::pubsub::topic<messages::hello> &hello_topic,
 	        pargs &pa):
 		m_name (name),
 		m_hello_dr (pubsub_service, hello_topic),
@@ -299,10 +310,10 @@ public:
 		m_thread (),
 		m_stopped (false)
 	{
-		if (m_pa.m_multithreaded) 
+		if (m_pa.m_multithreaded)
 		{
 			m_thread = std::thread (
-				[this] () 
+				[this] ()
 				{
 					while (!m_stopped)
 					{
@@ -321,12 +332,12 @@ public:
 				});
 */
 		}
-		else 
+		else
 		{
 			do_read ();
 		}
 	}
-		
+
 	~reader ()
 	{
 		if (m_pa.m_multithreaded)
@@ -335,18 +346,18 @@ public:
 			//m_thread2.join ();
 		}
 	}
-	
+
 	void stop ()
 	{
 		m_stopped = true;
 	}
-	
+
 	void print_stats () const
 	{
 		LOG_INFO (
 			m_pa.m_name << ", " <<
 			m_name << ", " <<
-			"rcvd:" << m_total_rcvd << 
+			"rcvd:" << m_total_rcvd <<
 			", dropped:" << m_total_dropped <<
 			", valid:" << m_total_valid);
 	}
@@ -380,18 +391,18 @@ private:
 
 			const auto it = m_last_seq_map.find (m_value.writer ());
 			if (it == m_last_seq_map.end ())
-			{				
+			{
 				m_last_seq_map[m_value.writer ()] = 0;
 			}
-			
-			if (m_value.seq () != m_last_seq_map[m_value.writer ()]+1) 
+
+			if (m_value.seq () != m_last_seq_map[m_value.writer ()]+1)
 			{
 				m_total_dropped += m_value.seq () - m_last_seq_map[m_value.writer ()] - 1;
 			}
 
-			if (valid) 
+			if (valid)
 				m_total_valid++;
-				
+
 			m_last_seq_map[m_value.writer ()] = m_value.seq ();
 		}
 		else if (ec != boost::asio::error::operation_aborted)
@@ -399,7 +410,7 @@ private:
 			LOG_ERROR ("error: " << ec);
 		}
 	}
-	
+
 	void do_read ()
 	{
 		m_hello_dr.async_read (m_value,
@@ -408,7 +419,7 @@ private:
 				if (!ec)
 				{
 					do_read ();
-					
+
 					LOG_DEBUG ("writer: " << m_value.writer ());
 					LOG_DEBUG ("msg: " << m_value.msg ());
 					LOG_DEBUG ("seq: " << m_value.seq ());
@@ -434,13 +445,13 @@ private:
 					{
 						m_last_seq_map[m_value.writer ()] = 0;
 					}
-			
-					if (m_value.seq () != m_last_seq_map[m_value.writer ()]+1) 
+
+					if (m_value.seq () != m_last_seq_map[m_value.writer ()]+1)
 					{
 						m_total_dropped += m_value.seq () - m_last_seq_map[m_value.writer ()] - 1;
 					}
 
-					if (valid) 
+					if (valid)
 						m_total_valid++;
 
 					m_last_seq_map[m_value.writer ()] = m_value.seq ();
@@ -469,21 +480,28 @@ int main (int argc, char* argv[])
 {
 	pargs pa;
 	if (!pa.parse (argc, argv))
-	{	
+	{
     return -1;
 	}
 
 	if (!pa.m_log_file.empty ())
 		olog = new std::ofstream (pa.m_log_file.c_str ());
-	
+
 	writer_count = pa.m_num_writers - 1;
 
 	try
 	{
+		yail::pubsub::topic_qos tq;
+		if (pa.m_durability)
+		{
+			tq.m_durability.m_type = yail::pubsub::topic_qos::durability::TRANSIENT_LOCAL;
+			tq.m_durability.m_depth = pa.m_depth;
+		}
+
 		boost::asio::io_service io_service;
 		transport tr (io_service);
 		yail::pubsub::service<transport> pubsub_service (io_service, tr);
-		yail::pubsub::topic<messages::hello> hello_topic ("greeting");
+		yail::pubsub::topic<messages::hello> hello_topic ("greeting", tq);
 
 		// creater readers
 		std::vector<std::unique_ptr<reader>> readers;
@@ -503,8 +521,8 @@ int main (int argc, char* argv[])
 
 		boost::asio::signal_set signals (io_service, SIGINT, SIGTERM, SIGALRM);
 		signals.async_wait (
-			[&] (const boost::system::error_code &ec, int signal) 
-				{ 
+			[&] (const boost::system::error_code &ec, int signal)
+				{
 					for (const auto &w : writers) { w->print_stats (); w->stop (); }
 					for (const auto &r : readers) { r->print_stats (); r->stop (); }
 
@@ -520,7 +538,7 @@ int main (int argc, char* argv[])
 			std::vector<std::thread> threads;
 			for (std::size_t i = 0; i < thread_pool_size; ++i)
 			{
-				std::thread thd ([&io_service] () { io_service.run (); });			
+				std::thread thd ([&io_service] () { io_service.run (); });
 				threads.push_back (std::move (thd));
 			}
 
@@ -532,7 +550,7 @@ int main (int argc, char* argv[])
 		{
 			io_service.run ();
 		}
-	} 
+	}
 	catch (const std::exception &ex)
 	{
 		LOG_ERROR (ex.what ());
@@ -540,4 +558,3 @@ int main (int argc, char* argv[])
 
   return 0;
 }
-

@@ -71,16 +71,17 @@ int main(int argc, char* argv[])
 			pair->set_value (values[i]);
 		}
 
-		general_dw.async_write (msg,
-			[ &io_service ] (const boost::system::error_code &ec)
+		io_service.post([&] ()
+		{
+			boost::system::error_code ec;
+			general_dw.write (msg, ec, 5);
+			if (ec)
 			{
-				if (ec && ec != boost::asio::error::operation_aborted)
-				{
-					LOG_ERROR ("error: " << ec);
-				}
+				LOG_ERROR ("error: " << ec);
+			}
 
-				io_service.stop ();
-			});
+			io_service.stop ();
+		});
 
 		io_service.run ();
 	}

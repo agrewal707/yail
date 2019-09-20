@@ -13,6 +13,7 @@
 #include <yail/buffer.h>
 #include <yail/memory.h>
 #include <yail/pubsub/error.h>
+#include <yail/pubsub/detail/topic_info.h>
 #include <yail/pubsub/detail/messages/pubsub.pb.h>
 
 //
@@ -29,20 +30,24 @@ namespace detail {
 //
 struct subscriber_common
 {
+	using notify_handler = std::function<void(const messages::subscription&)>;
 	using receive_handler = std::function<void (const boost::system::error_code &ec)>;
 
-	subscriber_common (yail::io_service &io_service, const std::string &domain);
+	subscriber_common (yail::io_service &io_service, const std::string &domain,
+		const notify_handler &handler);
 	~subscriber_common ();
 
 	/// Add data reader to the set of data readers that are serviced by this subscriber
-	YAIL_API bool add_data_reader (const void *id, const std::string &topic_name, 
-		const std::string &topic_type_name, std::string &topic_id);
+	YAIL_API bool add_data_reader (const void *id, const topic_info &topic_info, std::string &topic_id);
 
 	/// Remove data reader from the set of data readers that are serviced by this subscriber
 	YAIL_API bool remove_data_reader (const void *id, const std::string &topic_id);
 
 	/// Cancel all async operations
 	YAIL_API void cancel (const void *id, const std::string &topic_id);
+
+	/// construct subscription
+	bool construct_subscription (const topic_info &topic_info, messages::subscription &sub);
 
 	/// processs pubsub message received on the transport channel
 	void process_pubsub_message (const yail::buffer &buffer);
@@ -68,7 +73,7 @@ struct subscriber_common
 	{
 		YAIL_API sync_receive_operation (std::string &topic_data, boost::system::error_code &ec);
 		YAIL_API ~sync_receive_operation ();
-		
+
 		boost::system::error_code &m_ec;
 		std::mutex m_mutex;
 		std::condition_variable m_cond_done;
@@ -84,23 +89,27 @@ struct subscriber_common
 
 	struct dr
 	{
-		dr (const std::string &topic_name, const std::string &topic_type_name);
-		~dr ();
-
-		std::string m_topic_name;
-		std::string m_topic_type_name;
 		std::queue<std::shared_ptr<receive_operation>> m_op_queue;
 		std::mutex m_op_queue_mutex;
 		std::queue<std::string> m_data_queue;
-		std::mutex m_data_queue_mutex;		
+		std::mutex m_data_queue_mutex;
 	};
-	using dr_map = std::unordered_map<const void*, std::unique_ptr<dr>>;
+	struct topic
+	{
+		topic (const topic_info &topic_info);
+		~topic();
+
+		topic_info m_topic_info;
+		using dr_map = std::unordered_map<const void*, std::unique_ptr<dr>>;
+		dr_map m_dr_map;
+	};
 
 	yail::io_service &m_io_service;
 	std::string m_domain;
-	using topic_map = std::unordered_map<std::string, std::unique_ptr<dr_map>>;
+	using topic_map = std::unordered_map<std::string, std::unique_ptr<topic>>;
 	topic_map m_topic_map;
 	std::mutex m_topic_map_mutex;
+	notify_handler m_notify_handler;
 };
 
 //
@@ -110,14 +119,18 @@ template <typename Transport>
 class subscriber : private subscriber_common
 {
 public:
-	subscriber (yail::io_service &io_service, Transport &transport, const std::string &domain);
+	subscriber (
+		yail::io_service &io_service,
+		Transport &transport,
+		const std::string &domain,
+		const subscriber_common::notify_handler &handler);
 	~subscriber ();
 
 	/// Add data reader to the set of data readers that are serviced by this subscriber
-	void add_data_reader (const void *id, const std::string &topic_name, const std::string &topic_type_name, std::string &topic_id)
+	void add_data_reader (const void *id, const topic_info &topic_info, std::string &topic_id)
 	{
 		std::lock_guard<std::mutex> lock (m_topic_map_mutex);
-		if (subscriber_common::add_data_reader (id, topic_name, topic_type_name, topic_id))
+		if (subscriber_common::add_data_reader (id, topic_info, topic_id))
 		{
 			m_transport.add_topic (topic_id);
 		}
@@ -137,20 +150,20 @@ public:
 	void receive (const void*id, const std::string &topic_id, std::string &topic_data, boost::system::error_code &ec, const uint32_t timeout)
 	{
 		std::unique_lock<std::mutex> lock (m_topic_map_mutex);
-		
+
 		// lookup data reader map
 		auto it = m_topic_map.find (topic_id);
 		if (it != m_topic_map.end ())
 		{
-			auto &drmap = it->second;
+			auto &tctx = it->second;
 
 			// look up data reader ctx
-			auto it2 = drmap->find (id);
-			if (it2 != drmap->end ())
-			{				
+			auto it2 = tctx->m_dr_map.find (id);
+			if (it2 != tctx->m_dr_map.end ())
+			{
 				auto &drctx = it2->second;
 				lock.unlock ();
-				
+
 				std::unique_lock<std::mutex> dq_lock (drctx->m_data_queue_mutex);
 				if (!drctx->m_data_queue.empty ())
 				{
@@ -164,13 +177,13 @@ public:
 				else
 				{
 					dq_lock.unlock ();
-					
+
 					auto op (std::make_shared<sync_receive_operation> (topic_data, ec));
 					{
 						std::lock_guard<std::mutex> oq_lock (drctx->m_op_queue_mutex);
 						drctx->m_op_queue.push (op);
 					}
-					
+
 					// wait for operation to complete
 					std::unique_lock<std::mutex> l (op->m_mutex);
 					if (timeout)
@@ -198,26 +211,26 @@ public:
 			ec = yail::pubsub::error::unknown_topic;
 		}
 	}
-	
+
 	/// Receive topic data
 	template <typename Handler>
 	void async_receive (const void*id, const std::string &topic_id, std::string &topic_data, const Handler &handler)
 	{
 		std::unique_lock<std::mutex> lock(m_topic_map_mutex);
-		
+
 		// lookup data reader map
 		auto it = m_topic_map.find (topic_id);
 		if (it != m_topic_map.end ())
 		{
-			auto &drmap = it->second;
+			auto &tctx = it->second;
 
 			// look up data reader ctx
-			auto it2 = drmap->find (id);
-			if (it2 != drmap->end ())
+			auto it2 = tctx->m_dr_map.find (id);
+			if (it2 != tctx->m_dr_map.end ())
 			{
 				auto &drctx = it2->second;
 				lock.unlock ();
-				
+
 				std::unique_lock<std::mutex> dq_lock (drctx->m_data_queue_mutex);
 				if (!drctx->m_data_queue.empty ())
 				{
@@ -231,7 +244,7 @@ public:
 				else
 				{
 					dq_lock.unlock ();
-				
+
 					auto op (std::make_shared<async_receive_operation> (topic_data, handler));
 					std::lock_guard<std::mutex> oq_lock (drctx->m_op_queue_mutex);
 					drctx->m_op_queue.push (op);
@@ -259,6 +272,7 @@ private:
 
 	Transport &m_transport;
 	yail::buffer m_buffer;
+
 };
 
 } // namespace detail
@@ -270,8 +284,12 @@ namespace pubsub {
 namespace detail {
 
 template <typename Transport>
-subscriber<Transport>::subscriber (yail::io_service &io_service, Transport &transport, const std::string &domain) :
-	subscriber_common (io_service, domain),
+subscriber<Transport>::subscriber (
+	yail::io_service &io_service,
+	Transport &transport,
+	const std::string &domain,
+	const subscriber_common::notify_handler &handler) :
+	subscriber_common (io_service, domain, handler),
 	m_transport (transport),
 	m_buffer ()
 {
@@ -282,7 +300,7 @@ template <typename Transport>
 subscriber<Transport>::~subscriber ()
 {}
 
-template <typename Transport> 
+template <typename Transport>
 void subscriber<Transport>::do_receive ()
 {
 	m_transport.async_receive (m_buffer,

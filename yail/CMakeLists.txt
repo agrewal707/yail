@@ -13,7 +13,7 @@ configure_file (
 )
 
 # compiler flags
-add_definitions (-std=c++11 -Werror -DYAIL_DLL -DYAIL_DLL_EXPORTS -DBOOST_ASIO_DYN_LINK)
+add_definitions (-std=c++11 -Werror -DYAIL_DLL -DYAIL_DLL_EXPORTS -DBOOST_ASIO_DYN_LINK -DBOOST_NO_AUTO_PTR)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DYAIL_DEBUG -DYAIL_TRACE")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fvisibility=hidden -fvisibility-inlines-hidden")
 set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -fvisibility=hidden -fvisibility-inlines-hidden")
