@@ -56,6 +56,8 @@ struct pargs
 		m_num_readers (0),
 		m_num_msgs (1),
 		m_data_size (1024),
+		m_durability (false),
+		m_depth (0),
 		m_log_file (),
 		m_multithreaded (false)
 	{}
